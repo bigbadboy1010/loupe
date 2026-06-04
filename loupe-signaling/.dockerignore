@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+.DS_Store
+__MACOSX
+npm-debug.log*
+coverage
+.swiftpm
+xcuserdata
