@@ -27,6 +27,9 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
     private var localOfferSent = false
     private var pendingOffer: SdpPayload?
     private var pendingIceCandidates: [IceCandidatePayload] = []
+    private var localIceCandidateCount = 0
+    private var remoteIceCandidateCount = 0
+    private var inputEventCount = 0
 
     public init(
         sessionId: String,
@@ -95,6 +98,9 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
         localOfferSent = false
         pendingOffer = nil
         pendingIceCandidates.removeAll()
+        localIceCandidateCount = 0
+        remoteIceCandidateCount = 0
+        inputEventCount = 0
     }
 
     // MARK: EncodedFrameSink
@@ -106,7 +112,12 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
     // MARK: Wiring
 
     private func wirePeerCallbacks(injector: InputInjector) {
-        peer.onInputEvent = { event in
+        peer.onInputEvent = { [weak self] event in
+            guard let self else { return }
+            self.inputEventCount += 1
+            if self.inputEventCount == 1 || self.inputEventCount % 50 == 0 {
+                self.log("input events applied=\(self.inputEventCount)")
+            }
             injector.apply(event)
         }
         peer.onLocalDescription = { [weak self] sdp in
@@ -114,10 +125,13 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
             let signal: OutboundSignal = sdp.type == .offer
                 ? .offer(sessionId: self.sessionId, payload: sdp)
                 : .answer(sessionId: self.sessionId, payload: sdp)
+            self.log("local \(sdp.type.rawValue) generated")
             Task { await self.signaling.send(signal) }
         }
         peer.onLocalIceCandidate = { [weak self] candidate in
             guard let self else { return }
+            self.localIceCandidateCount += 1
+            self.log("local ice candidate #\(self.localIceCandidateCount)")
             Task { await self.signaling.send(.ice(sessionId: self.sessionId, payload: candidate)) }
         }
     }
@@ -161,7 +175,8 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
             if iceServersConfigured {
                 do {
                     try await peer.addRemoteIceCandidate(candidate)
-                    log("remote ice applied")
+                    remoteIceCandidateCount += 1
+                    log("remote ice applied #\(remoteIceCandidateCount)")
                 } catch {
                     log("remote ice failed error=\(error.localizedDescription)")
                 }
@@ -213,7 +228,8 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
         for candidate in candidates {
             do {
                 try await peer.addRemoteIceCandidate(candidate)
-                log("queued ice applied")
+                remoteIceCandidateCount += 1
+                log("queued ice applied #\(remoteIceCandidateCount)")
             } catch {
                 log("queued ice failed error=\(error.localizedDescription)")
             }

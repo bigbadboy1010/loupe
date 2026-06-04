@@ -48,7 +48,7 @@ Loupe/
 
 ## Status
 
-MVP-Skeleton mit lauffähigem Signaling-Server, Docker/coturn-Hardening, WebRTC-Orchestrierung für Host/Controller, QR-/TOFU-Pairing-Bausteinen, nativer iOS-Scanner-Komponente sowie Controller-Settings/Diagnostics-UI. Details: `docs/hardening-changes.md`, `docs/end-to-end-test.md` und `docs/ui-diagnostics-roadmap.md`.
+MVP-Skeleton mit abgenommenem Public Signaling/TURN-Endpoint, buildfähigem macOS Host, buildfähiger iOS Controller-App, QR-/TOFU-Pairing, Controller-Settings, Live-Diagnostics, Runtime-Event-Timeline und Host-Logs. Der echte iPhone-End-to-End-Test ist der nächste harte Gate. Details: `docs/hardening-changes.md`, `docs/end-to-end-test.md`, `docs/iphone-test-acceptance.md` und `docs/product-roadmap.md`.
 
 
 ## Aktueller Deploy-Stand
@@ -67,6 +67,9 @@ TURN IP:     212.186.18.125
 
 ```bash
 cd Loupe
+chmod +x scripts/*.sh
+./scripts/loupe-doctor.sh
+./scripts/run-xcode-builds.sh
 ./scripts/open-xcode.sh
 ```
 
@@ -77,22 +80,18 @@ Dann in Xcode:
 3. `LoupeControllerApp` Scheme auf echtem iPhone starten.
 4. Pairing QR scannen oder Token einfügen.
 
-Details: `docs/xcode-build.md` und `docs/end-to-end-test.md`.
+Details: `docs/xcode-build.md`, `docs/end-to-end-test.md` und `docs/iphone-test-acceptance.md`.
 
-## v2 Features (Neu)
+## Helper-Scripts
 
-### iOS Controller
-- **Start Screen** mit Connection Status
-- **QR Scan**, Manual Token Input, Clipboard Paste
-- **Settings Screen** mit Server/Session/Device Values
-- **Trust Store Reset**
-- **Live Diagnostics Screen** mit Copy-to-Clipboard Report
-- **Remote Screen** mit Loading Overlay, Connection Badge, Touch Hint
-- **Controller-side Counters**: TURN Credentials, ICE State, Data Channel, Video Frames
+| Script | Zweck |
+|---|---|
+| `scripts/loupe-doctor.sh` | Prüft Projektstruktur, Server-Health, TURN-Port und Signaling-Build. |
+| `scripts/run-xcode-builds.sh` | Baut `LoupeHost` und `LoupeControllerApp` reproduzierbar per `xcodebuild`. |
+| `scripts/open-xcode.sh` | Öffnet den Workspace. |
+| `scripts/open-host-qr.sh` | Öffnet den zuletzt erzeugten Pairing-QR für `loupe-dev-session`. |
+| `scripts/create-release-zip.sh` | Erstellt ein bereinigtes ZIP ohne Build-Artefakte. |
 
-### macOS Host
-- **Structured Runtime Logs** mit `[LoupeHost]` Prefix
-- ScreenCaptureKit + WebRTC Integration
-- TURN/STUN Credential Handling
+## OpenClaw
 
-Siehe `docs/ui-diagnostics-roadmap.md` für vollständige Roadmap.
+Der nächste ausführbare Prompt liegt in `docs/openclaw-next-prompt.md`.

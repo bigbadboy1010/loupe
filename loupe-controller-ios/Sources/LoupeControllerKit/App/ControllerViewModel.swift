@@ -21,6 +21,7 @@ public final class ControllerViewModel: ObservableObject {
     @Published public private(set) var currentFrame: CGImage?
     @Published public private(set) var remoteVideoSize: CGSize = .zero
     @Published public private(set) var diagnostics: ControllerDiagnostics
+    @Published public private(set) var recentEvents: [String] = []
 
     private let sessionId: String
     private let peerId: String
@@ -44,6 +45,7 @@ public final class ControllerViewModel: ObservableObject {
             peerId: peerId,
             signalingURL: signaling.endpoint
         )
+        self.recentEvents = [Self.eventLine("initialized session=\(sessionId)")]
     }
 
     public func updateViewSize(_ size: CGSize) {
@@ -277,9 +279,28 @@ public final class ControllerViewModel: ObservableObject {
     }
 
     private func updateDiagnostics(_ mutate: (inout ControllerDiagnostics) -> Void) {
+        let previousEvent = diagnostics.lastEvent
         var next = diagnostics
         mutate(&next)
         diagnostics = next
+        if next.lastEvent != previousEvent {
+            appendEvent(next.lastEvent)
+        }
+    }
+
+    private func appendEvent(_ message: String) {
+        let line = Self.eventLine(message)
+        var events = recentEvents
+        events.append(line)
+        if events.count > 80 {
+            events.removeFirst(events.count - 80)
+        }
+        recentEvents = events
+    }
+
+    private static func eventLine(_ message: String) -> String {
+        let timestamp = Date().formatted(date: .omitted, time: .standard)
+        return "[\(timestamp)] \(message)"
     }
 
     private static func describe(_ phase: Phase) -> String {

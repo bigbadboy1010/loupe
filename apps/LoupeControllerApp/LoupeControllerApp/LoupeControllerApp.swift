@@ -358,12 +358,13 @@ private struct LiveDiagnosticsView: View {
     @State private var copied = false
 
     var body: some View {
+        let report = model.diagnostics.copyableReport + "\n\nRecent Events\n" + model.recentEvents.joined(separator: "\n")
         DiagnosticsReportView(
             title: "Live Diagnostics",
-            report: model.diagnostics.copyableReport,
+            report: report,
             copied: copied,
             onCopy: {
-                UIPasteboard.general.string = model.diagnostics.copyableReport
+                UIPasteboard.general.string = report
                 copied = true
             },
             onClose: { dismiss() }
