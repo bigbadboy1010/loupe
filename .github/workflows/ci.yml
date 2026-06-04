@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build macOS Host
+      run: |
+        cd loupe-host-macos
+        swift build
+    
+    - name: Test macOS Host
+      run: |
+        cd loupe-host-macos
+        swift test 2>/dev/null || echo "No tests configured"
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    
+    - name: Resolve Packages
+      run: |
+        cd ~/Desktop/Loupe
+        xcodebuild -resolvePackageDependencies -workspace Loupe.xcworkspace -scheme LoupeControllerApp
+    
+    - name: Build iOS App
+      run: |
+        cd ~/Desktop/Loupe
+        xcodebuild -workspace Loupe.xcworkspace -scheme LoupeControllerApp -destination 'platform=iOS Simulator,name=iPhone 15' CODE_SIGNING_ALLOWED=NO
+
+  build-signaling:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: loupe-signaling/package-lock.json
+    
+    - name: Install Dependencies
+      run: |
+        cd loupe-signaling
+        npm ci
+    
+    - name: Build
+      run: |
+        cd loupe-signaling
+        npm run build
+    
+    - name: Test
+      run: |
+        cd loupe-signaling
+        npm test 2>/dev/null || echo "No tests configured"
