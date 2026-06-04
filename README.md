@@ -1,80 +1,268 @@
 # Loupe
 
-Apple-natives Remote-Desktop-Tool für macOS und iOS. Latenzarmer Fernzugriff zwischen deinen eigenen Geräten – ohne Account-Gefrickel, ohne plattformübergreifenden Ballast. Der Anspruch: das, was TeamViewer/AnyDesk generisch lösen, im Apple-Ökosystem tief integriert und schneller.
+Apple-natives Remote-Desktop-Tool für macOS und iOS. Latenzarmer Fernzugriff zwischen deinen eigenen Geräten – ohne Account-Gefrickel, ohne plattformübergreifenden Ballast.
 
-**Bundle-ID-Prefix:** `com.miggu69.loupe`
+**Bundle-ID:** `org.miggu69.loupe.controller` (iOS), `com.miggu69.loupe.host` (macOS)
 
-## Steuerungsrichtungen & Machbarkeit
+---
 
-| Richtung | Status | Begründung |
+## Features
+
+| Richtung | Status | Beschreibung |
 |---|---|---|
-| **Mac → Mac** | Voll machbar | ScreenCaptureKit (Capture) + CGEvent (Input-Injection). Erfordert Screen-Recording- und Accessibility-Permission. |
-| **iPhone/iPad → Mac** | Voll machbar | iOS-Gerät als Controller, Mac als Host. Touch/Trackpad-Gesten werden in CGEvents übersetzt. **Kern-USP.** |
-| **Mac → iPhone** | Nur View-Only | iOS lässt **keine** Input-Injection durch Dritt-Apps zu (nur Apple selbst via privater Entitlement / „iPhone Mirroring"). Ohne Jailbreak ist nur Screen-Mirroring (ansehen, nicht steuern) möglich. Siehe `docs/architecture.md` → Bekannte Einschränkungen. |
+| **Mac → Mac** | ✅ Voll | ScreenCaptureKit + CGEvent Input-Injection |
+| **iPhone/iPad → Mac** | ✅ Voll | iOS als Controller, Mac als Host. Touch-Gesten → CGEvents. **Kern-USP.** |
+| **Mac → iPhone** | ⚠️ View-Only | iOS erlaubt keine Input-Injection durch Dritt-Apps |
 
 ## Tech-Stack
 
-- **Host (macOS):** Swift, ScreenCaptureKit, VideoToolbox (HW-Encode H.264/HEVC), CGEvent (Input)
-- **Controller (iOS/macOS):** Swift / SwiftUI, WebRTC-Client, VideoToolbox (HW-Decode)
-- **Transport:** WebRTC (DataChannel für Input, Video-Track für Screen), E2E via DTLS-SRTP
+- **Host (macOS):** Swift, ScreenCaptureKit, VideoToolbox (HW-Encode), CGEvent
+- **Controller (iOS):** SwiftUI, WebRTC-Client, VideoToolbox (HW-Decode)
+- **Transport:** WebRTC (DataChannel für Input, Video-Track für Screen)
 - **Signaling:** Fastify (Node/TypeScript), WebSocket
 - **NAT-Traversal:** STUN + self-hosted TURN (coturn)
-- **Pairing/Auth:** Public-Key pro Gerät, QR-Code-Pairing, keine Cloud-Accounts
+- **Pairing:** QR-Code, Public-Key-Pinning (TOFU), keine Cloud-Accounts
 
-## Module
+---
+
+## Projektstruktur
 
 ```
 Loupe/
-├── README.md
-├── docs/
-│   ├── ADR-001-transport.md     # WebRTC vs. QUIC
-│   ├── ADR-002-libwebrtc.md     # libwebrtc-Binding & Encoder-Strategie
-│   ├── ADR-003-pairing.md       # QR-Pairing, Public-Key-Pinning (TOFU)
-│   ├── architecture.md          # Systemüberblick, Datenfluss, Permissions
-│   └── mvp-scope.md             # Release-Scope & Meilensteine
-├── loupe-host-macos/            # Swift Host-App (Screen-Capture + Input)
-├── loupe-controller-ios/        # SwiftUI Controller Kit (WebRTC-Client)
-├── apps/LoupeControllerApp/     # iOS App-Wrapper, lokalem Package eingebunden
-├── scripts/                     # Xcode/Signaling Helper
-└── loupe-signaling/             # Fastify WebSocket Signaling-Server + coturn
+├── README.md                      # Diese Datei
+├── .gitignore                     # Git Ignore-Regeln
+├── Loupe.xcworkspace              # Xcode Workspace (macOS + iOS)
+│
+├── docs/                          # Dokumentation
+│   ├── architecture.md            # Systemarchitektur & Datenfluss
+│   ├── mvp-scope.md               # MVP Meilensteine
+│   ├── ADR-001-transport.md       # ADR: WebRTC vs. QUIC
+│   ├── ADR-002-libwebrtc.md       # ADR: libwebrtc-Binding
+│   ├── ADR-003-pairing.md         # ADR: QR-Pairing & TOFU
+│   ├── hardening-changes.md       # Sicherheitshärtung
+│   └── xcode-build.md             # Xcode Build-Anleitung
+│
+├── loupe-host-macos/              # macOS Host (Swift Package)
+│   ├── Package.swift
+│   └── Sources/LoupeHostKit/      # ScreenCapture, WebRTC, Pairing
+│
+├── loupe-controller-ios/          # iOS Controller (Swift Package)
+│   ├── Package.swift
+│   └── Sources/LoupeControllerKit/ # WebRTC-Client, UI, Input
+│
+├── apps/
+│   └── LoupeControllerApp/        # iOS App (Xcode Projekt)
+│       └── LoupeControllerApp.swift # App-Entry Point
+│
+├── loupe-signaling/               # Signaling-Server
+│   ├── src/                       # TypeScript Source
+│   ├── coturn/                    # TURN/STUN Konfiguration
+│   ├── docker-compose.yml         # Docker Compose
+│   ├── Dockerfile                 # Signaling Container
+│   └── package.json               # Node.js Dependencies
+│
+└── scripts/                       # Hilfsskripte
+    ├── open-xcode.sh              # Xcode Workspace öffnen
+    └── verify-signaling.sh        # Signaling-Server prüfen
 ```
 
-## Designprinzipien
+---
 
-1. **Latenz vor allem.** Ziel-Glass-to-Glass < 50 ms. HW-Encode/Decode auf beiden Enden, adaptive Bitrate via WebRTC.
-2. **E2E-verschlüsselt by default.** Kein Klartext-Relay; TURN nur als verschlüsselter Fallback.
-3. **Account-frei.** Pairing über QR + Public-Key, keine Pflicht-Cloud.
-4. **Apple-nativ.** Keine Cross-Platform-Frameworks (Electron, Flutter). Swift überall.
+## Schnellstart
 
-## Status
+### Voraussetzungen
 
-MVP-Skeleton mit lauffähigem Signaling-Server, Docker/coturn-Hardening, WebRTC-Orchestrierung für Host/Controller, QR-/TOFU-Pairing-Bausteinen und nativer iOS-Scanner-Komponente. Details: `docs/hardening-changes.md`.
+- macOS 15+ (für Host)
+- iOS 16+ (für Controller)
+- Xcode 16+
+- Apple Developer Account (für iOS Deployment)
+- Docker + Docker Compose (für Signaling-Server)
 
-
-## Aktueller Deploy-Stand
-
-Der öffentliche MVP-Endpoint ist voreingestellt und geprüft:
-
-```text
-Public URL:  https://loupe.ddns.net
-Healthcheck: https://loupe.ddns.net/healthz
-WebSocket:   wss://loupe.ddns.net/ws
-STUN/TURN:   loupe.ddns.net:3478 UDP/TCP
-TURN IP:     212.186.18.125
-```
-
-## Xcode-Schnellstart
+### 1. Repository klonen
 
 ```bash
-cd Loupe
-./scripts/open-xcode.sh
+git clone https://github.com/bigbadboy1010/loupe.git
+cd loupe
 ```
 
-Dann in Xcode:
+### 2. Xcode Workspace öffnen
 
-1. `LoupeHost` Scheme auf `My Mac` starten.
-2. macOS Screen Recording + Accessibility erlauben.
-3. `LoupeControllerApp` Scheme auf echtem iPhone starten.
-4. Pairing QR scannen oder Token einfügen.
+```bash
+./scripts/open-xcode.sh
+# oder manuell:
+open Loupe.xcworkspace
+```
 
-Details: `docs/xcode-build.md`.
+### 3. Signaling-Server starten (lokal oder remote)
+
+**Option A: Lokaler Signaling-Server**
+```bash
+cd loupe-signaling
+cp .env.example .env
+# .env editieren: TURN_SECRET setzen (openssl rand -base64 48)
+docker-compose up -d
+```
+
+**Option B: Remote Signaling-Server (bereits deployt)**
+```text
+URL:  https://loupe.ddns.net
+WS:   wss://loupe.ddns.net/ws
+TURN: loupe.ddns.net:3478
+```
+
+### 4. macOS Host starten
+
+1. Xcode: Scheme `LoupeHost` → Destination `My Mac`
+2. `Product > Run`
+3. Berechtigungen erlauben:
+   - **Systemeinstellungen > Datenschutz & Sicherheit > Bildschirmaufnahme**
+   - **Systemeinstellungen > Datenschutz & Sicherheit > Bedienungshilfen**
+4. Host zeigt QR-Code und Pairing Token
+
+### 5. iOS Controller starten
+
+1. iPhone per USB anschließen
+2. Xcode: Scheme `LoupeControllerApp` → Destination `Dein iPhone`
+3. **Signing & Capabilities:**
+   - Team auswählen
+   - "Automatically manage signing" aktivieren
+   - Bundle Identifier: `org.miggu69.loupe.controller`
+4. `Product > Run`
+5. In der App: QR-Code scannen oder Token einfügen
+
+---
+
+## Signaling-Server Deployment
+
+### Docker Compose (Production)
+
+```bash
+cd loupe-signaling
+# .env erstellen (siehe .env.example)
+docker-compose up -d
+```
+
+### Manuelle Container
+
+```bash
+# Signaling-Server
+docker run -d \
+  --name loupe-signaling \
+  -p 8080:8080 \
+  -e TURN_SECRET="$(openssl rand -base64 48)" \
+  -e TURN_HOST="loupe.ddns.net" \
+  loupe-signaling:latest
+
+# TURN/STUN Server
+docker run -d \
+  --name loupe-coturn \
+  -p 3478:3478/tcp \
+  -p 3478:3478/udp \
+  -e TURN_SECRET="${TURN_SECRET}" \
+  -e TURN_REALM="loupe.ddns.net" \
+  -e TURN_EXTERNAL_IP="212.186.18.125" \
+  loupe-coturn:latest
+```
+
+---
+
+## Konfiguration
+
+### Umgebungsvariablen (Signaling-Server)
+
+| Variable | Beschreibung | Beispiel |
+|----------|-------------|----------|
+| `TURN_SECRET` | Shared Secret für TURN (≥32 Zeichen) | `openssl rand -base64 48` |
+| `TURN_HOST` | Öffentlicher Hostname | `loupe.ddns.net` |
+| `TURN_REALM` | TURN Realm | `loupe.ddns.net` |
+| `TURN_EXTERNAL_IP` | Externe IP (für NAT) | `212.186.18.125` |
+
+### iOS App Konfiguration
+
+In `LoupeControllerApp.swift`:
+```swift
+static let signalingURL = "wss://loupe.ddns.net/ws"
+static let fallbackSessionId = "loupe-dev-session"
+```
+
+---
+
+## WebRTC Architektur
+
+```
+┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+│   iOS       │ ◄─────► │  Signaling  │ ◄─────► │   macOS     │
+│ Controller  │  WebRTC │   Server    │  WebRTC │    Host     │
+│             │  Peer   │  (WebSocket)│  Peer   │             │
+│ - Touch     │ Connection│           │ Connection│ - Screen    │
+│ - Gestures  │         │ - Pairing   │         │ - Input     │
+│ - Video     │         │ - ICE       │         │ - Encode    │
+└─────────────┘         └─────────────┘         └─────────────┘
+                              │
+                              ▼
+                        ┌─────────────┐
+                        │   TURN/STUN │
+                        │   Server    │
+                        │  (coturn)   │
+                        └─────────────┘
+```
+
+---
+
+## Sicherheit
+
+- **E2E-Verschlüsselung:** WebRTC DTLS-SRTP (kein Klartext)
+- **TOFU-Pinning:** Public-Key auf erstem Pairing, MITM-Resistent
+- **Keine Cloud:** Keine zentrale Infrastruktur, keine Accounts
+- **Self-Hosted:** Signaling + TURN auf eigenem Server
+
+---
+
+## Dokumentation
+
+- [Architektur-Übersicht](docs/architecture.md)
+- [MVP Scope & Meilensteine](docs/mvp-scope.md)
+- [Transport ADR](docs/ADR-001-transport.md)
+- [libwebrtc ADR](docs/ADR-002-libwebrtc.md)
+- [Pairing ADR](docs/ADR-003-pairing.md)
+- [Sicherheitshärtung](docs/hardening-changes.md)
+- [Xcode Build](docs/xcode-build.md)
+
+---
+
+## Entwicklung
+
+### Branching
+
+- `main` — Produktions-Code
+- `feature/*` — Neue Features
+- `fix/*` — Bugfixes
+
+### Commit Convention
+
+```
+feat: neue Funktion
+fix: Bugfix
+docs: Dokumentation
+chore: Wartung
+refactor: Umstrukturierung
+test: Tests
+```
+
+---
+
+## Lizenz
+
+Privates Projekt — Alle Rechte vorbehalten.
+
+---
+
+## Kontakt
+
+**Maintainer:** Francois (bigbadboy1010)
+**Bundle-ID:** `org.miggu69.loupe.*`
+**Server:** loupe.ddns.net
+
+---
+
+*Letztes Update: 2026-06-04*
