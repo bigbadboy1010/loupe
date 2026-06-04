@@ -78,3 +78,21 @@ Dann in Xcode:
 4. Pairing QR scannen oder Token einfügen.
 
 Details: `docs/xcode-build.md` und `docs/end-to-end-test.md`.
+
+## v2 Features (Neu)
+
+### iOS Controller
+- **Start Screen** mit Connection Status
+- **QR Scan**, Manual Token Input, Clipboard Paste
+- **Settings Screen** mit Server/Session/Device Values
+- **Trust Store Reset**
+- **Live Diagnostics Screen** mit Copy-to-Clipboard Report
+- **Remote Screen** mit Loading Overlay, Connection Badge, Touch Hint
+- **Controller-side Counters**: TURN Credentials, ICE State, Data Channel, Video Frames
+
+### macOS Host
+- **Structured Runtime Logs** mit `[LoupeHost]` Prefix
+- ScreenCaptureKit + WebRTC Integration
+- TURN/STUN Credential Handling
+
+Siehe `docs/ui-diagnostics-roadmap.md` für vollständige Roadmap.
