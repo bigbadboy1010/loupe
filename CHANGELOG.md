@@ -1,5 +1,28 @@
 # Loupe Changelog
 
+## v0.3.1-build-green
+
+Snapshot after clean builds and ControllerFactory fix.
+
+### Fixed
+
+- `ControllerFactory.swift:48` — Optional unwrapping für `Fingerprint.ofBase64URL()` mit `??` Operator korrigiert.
+- iOS Controller Build: BUILD SUCCEEDED (Xcode 16, generic iOS).
+- macOS Host Build: BUILD SUCCEEDED (Swift 8.41s, My Mac).
+
+### Verified
+
+- `./scripts/loupe-doctor.sh`: ALL PASSED.
+- `./scripts/run-xcode-builds.sh`: BUILD SUCCEEDED.
+- Signaling Server: `https://loupe.ddns.net/healthz` → HTTP 200.
+- TURN/STUN: Port 3478 erreichbar.
+
+### Status
+
+Bereit für echten iPhone End-to-End-Test.
+
+---
+
 ## v0.3-ui-diagnostics-plus
 
 Additive development on top of the build-green UI/Diagnostics baseline.
