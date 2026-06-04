@@ -48,6 +48,7 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
     public func start() async throws {
         let status = Permissions.current()
         guard status.allGranted else { throw SessionError.permissionsMissing(status) }
+        log("permissions screenRecording=\(status.screenRecording) accessibility=\(status.accessibility)")
 
         let injector = InputInjector(displayBounds: displayBounds)
         self.injector = injector
@@ -71,10 +72,14 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
         consumeSignaling()
 
         signaling.connect()
+        log("signaling connect requested")
         await signaling.send(.join(sessionId: sessionId, peerId: peerId, role: "host"))
+        log("join sent session=\(sessionId)")
         await signaling.send(.turnCred)
+        log("turn-cred requested")
 
         try await capture.start()
+        log("screen capture started")
     }
 
     public func stop() async {
@@ -84,6 +89,7 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
         encoder?.invalidate()
         peer.close()
         signaling.close()
+        log("session stopped")
         iceServersConfigured = false
         controllerPresent = false
         localOfferSent = false
@@ -127,43 +133,62 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
 
     private func handle(_ event: InboundSignal) async {
         switch event {
-        case let .turnCred(iceServers, _):
+        case let .turnCred(iceServers, ttlSeconds):
+            log("turn-cred received servers=\(iceServers.count) ttl=\(ttlSeconds)")
             peer.setIceServers(iceServers)
             iceServersConfigured = true
             await processPendingOfferIfReady()
             await processPendingIceCandidatesIfReady()
             await startOfferIfReady()
-        case .peerJoined:
+        case let .peerJoined(peerId):
+            log("controller joined peer=\(peerId)")
             controllerPresent = true
             await startOfferIfReady()
         case let .answer(sdp):
             do {
                 try await peer.setRemoteDescription(sdp)
+                log("remote answer applied")
                 await processPendingIceCandidatesIfReady()
             } catch {
+                log("remote answer failed error=\(error.localizedDescription)")
                 // Keep the session alive; the controller may renegotiate.
             }
         case let .offer(sdp):
+            log("remote offer received")
             pendingOffer = sdp
             await processPendingOfferIfReady()
         case let .ice(candidate):
             if iceServersConfigured {
-                try? await peer.addRemoteIceCandidate(candidate)
+                do {
+                    try await peer.addRemoteIceCandidate(candidate)
+                    log("remote ice applied")
+                } catch {
+                    log("remote ice failed error=\(error.localizedDescription)")
+                }
             } else {
                 pendingIceCandidates.append(candidate)
+                log("remote ice queued count=\(pendingIceCandidates.count)")
             }
         case .peerLeft:
+            log("controller left")
             await stop()
-        case .joined, .error:
-            break
+        case let .joined(role):
+            log("joined as \(role)")
+        case let .error(code, message):
+            log("signaling error code=\(code) message=\(message)")
         }
     }
 
     private func startOfferIfReady() async {
         guard iceServersConfigured, controllerPresent, !localOfferSent else { return }
-        guard let offer = try? await peer.createOffer() else { return }
-        localOfferSent = true
-        await signaling.send(.offer(sessionId: sessionId, payload: offer))
+        do {
+            let offer = try await peer.createOffer()
+            localOfferSent = true
+            await signaling.send(.offer(sessionId: sessionId, payload: offer))
+            log("local offer sent")
+        } catch {
+            log("local offer failed error=\(error.localizedDescription)")
+        }
     }
 
     private func processPendingOfferIfReady() async {
@@ -173,9 +198,11 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
             try await peer.setRemoteDescription(offer)
             let answer = try await peer.createAnswer()
             await signaling.send(.answer(sessionId: sessionId, payload: answer))
+            log("local answer sent")
             await processPendingIceCandidatesIfReady()
         } catch {
             pendingOffer = offer
+            log("remote offer processing failed error=\(error.localizedDescription)")
         }
     }
 
@@ -184,7 +211,16 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
         let candidates = pendingIceCandidates
         pendingIceCandidates.removeAll()
         for candidate in candidates {
-            try? await peer.addRemoteIceCandidate(candidate)
+            do {
+                try await peer.addRemoteIceCandidate(candidate)
+                log("queued ice applied")
+            } catch {
+                log("queued ice failed error=\(error.localizedDescription)")
+            }
         }
+    }
+
+    private func log(_ message: String) {
+        FileHandle.standardError.write(Data("[LoupeHost] \(message)\n".utf8))
     }
 }

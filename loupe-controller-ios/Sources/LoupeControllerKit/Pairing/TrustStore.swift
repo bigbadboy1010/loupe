@@ -62,4 +62,10 @@ public final class UserDefaultsTrustStore: TrustStore, @unchecked Sendable {
     public func forget(peerId: String) {
         defaults.removeObject(forKey: keyPrefix + peerId)
     }
+
+    public func removeAllPins() {
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(keyPrefix) {
+            defaults.removeObject(forKey: key)
+        }
+    }
 }

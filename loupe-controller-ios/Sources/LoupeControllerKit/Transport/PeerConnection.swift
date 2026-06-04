@@ -15,6 +15,15 @@ public protocol PeerConnection: AnyObject, Sendable {
     /// Decoded remote video frame ready for display.
     var onVideoFrame: (@Sendable (CVPixelBuffer) -> Void)? { get set }
 
+    /// Diagnostic callback for libwebrtc ICE connection state.
+    var onIceConnectionStateChanged: (@Sendable (String) -> Void)? { get set }
+
+    /// Diagnostic callback for libwebrtc peer connection state.
+    var onPeerConnectionStateChanged: (@Sendable (String) -> Void)? { get set }
+
+    /// Diagnostic callback for the input data-channel state.
+    var onDataChannelStateChanged: (@Sendable (String) -> Void)? { get set }
+
     func setIceServers(_ servers: [IceServer])
 
     /// Sends an input event to the host over the reliable, ordered data channel.

@@ -16,6 +16,9 @@ public final class WebRTCPeerConnection: NSObject, PeerConnection, @unchecked Se
     public var onLocalDescription: (@Sendable (SdpPayload) -> Void)?
     public var onLocalIceCandidate: (@Sendable (IceCandidatePayload) -> Void)?
     public var onVideoFrame: (@Sendable (CVPixelBuffer) -> Void)?
+    public var onIceConnectionStateChanged: (@Sendable (String) -> Void)?
+    public var onPeerConnectionStateChanged: (@Sendable (String) -> Void)?
+    public var onDataChannelStateChanged: (@Sendable (String) -> Void)?
 
     private static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL()
@@ -215,15 +218,63 @@ extension WebRTCPeerConnection: RTCPeerConnectionDelegate {
     public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
     public func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
-    public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {}
+    public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
+        onIceConnectionStateChanged?(Self.describe(newState))
+    }
+
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
+
+    public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCPeerConnectionState) {
+        onPeerConnectionStateChanged?(Self.describe(newState))
+    }
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
 }
 
 // MARK: - RTCDataChannelDelegate
 
 extension WebRTCPeerConnection: RTCDataChannelDelegate {
-    public func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {}
+    public func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
+        onDataChannelStateChanged?(Self.describe(dataChannel.readyState))
+    }
+
     public func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {}
+}
+
+private extension WebRTCPeerConnection {
+    static func describe(_ state: RTCIceConnectionState) -> String {
+        switch state {
+        case .new: return "new"
+        case .checking: return "checking"
+        case .connected: return "connected"
+        case .completed: return "completed"
+        case .failed: return "failed"
+        case .disconnected: return "disconnected"
+        case .closed: return "closed"
+        case .count: return "count"
+        @unknown default: return "unknown"
+        }
+    }
+
+    static func describe(_ state: RTCPeerConnectionState) -> String {
+        switch state {
+        case .new: return "new"
+        case .connecting: return "connecting"
+        case .connected: return "connected"
+        case .disconnected: return "disconnected"
+        case .failed: return "failed"
+        case .closed: return "closed"
+        @unknown default: return "unknown"
+        }
+    }
+
+    static func describe(_ state: RTCDataChannelState) -> String {
+        switch state {
+        case .connecting: return "connecting"
+        case .open: return "open"
+        case .closing: return "closing"
+        case .closed: return "closed"
+        @unknown default: return "unknown"
+        }
+    }
 }
 #endif

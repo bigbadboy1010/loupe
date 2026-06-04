@@ -17,9 +17,7 @@ struct RemoteScreenView: View {
                         .interpolation(.low)
                         .scaledToFit()
                 } else {
-                    Text("Warte auf Remote-Screen…")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    loadingOverlay
                 }
             }
             .contentShape(Rectangle())
@@ -31,13 +29,48 @@ struct RemoteScreenView: View {
             }
             .onAppear { model.updateViewSize(proxy.size) }
             .overlay(alignment: .topLeading) {
-                Text(statusText)
-                    .font(.caption2)
-                    .padding(6)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .padding(8)
+                statusBadge
+            }
+            .overlay(alignment: .bottomLeading) {
+                touchHint
             }
         }
+    }
+
+    private var loadingOverlay: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .progressViewStyle(.circular)
+            Text("Warte auf Remote-Screen…")
+                .font(.headline)
+            Text("WebSocket, TURN/STUN und WebRTC werden aufgebaut.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .foregroundStyle(.white)
+        .padding(20)
+    }
+
+    private var statusBadge: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(statusText)
+                .font(.caption.bold())
+            Text("Frames: \(model.diagnostics.videoFramesReceived) • ICE: \(model.diagnostics.iceConnectionState)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .padding(8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .padding(8)
+    }
+
+    private var touchHint: some View {
+        Text("Touch: bewegen • Tap: Linksklick • Long Press: Rechtsklick")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .padding(8)
+            .background(.ultraThinMaterial, in: Capsule())
+            .padding(8)
     }
 
     private var statusText: String {

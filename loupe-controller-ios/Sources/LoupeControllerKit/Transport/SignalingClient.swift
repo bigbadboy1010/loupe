@@ -10,6 +10,7 @@ public enum SignalingState: Sendable, Equatable {
 public final class SignalingClient: NSObject, @unchecked Sendable {
 
     public private(set) var state: SignalingState = .idle
+    public var endpoint: String { url.absoluteString }
 
     private let url: URL
     private let session: URLSession
