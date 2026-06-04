@@ -1,0 +1,32 @@
+{
+  "name": "loupe-signaling",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Loupe signaling server — relays SDP/ICE between two peers and issues short-lived TURN credentials.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:smoke": "tsx test/smoke.ts",
+    "clean": "rm -rf dist",
+    "test": "npm run typecheck && npm run build && npm run test:smoke"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.0.1",
+    "fastify": "^5.1.0",
+    "pino": "^9.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "ws": "^8.18.0",
+    "@types/ws": "^8.5.13"
+  }
+}
