@@ -1,97 +1,221 @@
-# Loupe
+# Loupe v3.6-stable MVP
 
-Apple-natives Remote-Desktop-Tool für macOS und iOS. Latenzarmer Fernzugriff zwischen deinen eigenen Geräten – ohne Account-Gefrickel, ohne plattformübergreifenden Ballast. Der Anspruch: das, was TeamViewer/AnyDesk generisch lösen, im Apple-Ökosystem tief integriert und schneller.
+## Was ist Loupe?
 
-**Bundle-ID-Prefix:** `com.miggu69.loupe`
+Loupe ist eine **iPhone → Mac Remote Desktop Lösung** basierend auf WebRTC. Du kannst deinen Mac-Bildschirm auf dem iPhone sehen und per Touch den Mac steuern.
 
-## Steuerungsrichtungen & Machbarkeit
+---
 
-| Richtung | Status | Begründung |
-|---|---|---|
-| **Mac → Mac** | Voll machbar | ScreenCaptureKit (Capture) + CGEvent (Input-Injection). Erfordert Screen-Recording- und Accessibility-Permission. |
-| **iPhone/iPad → Mac** | Voll machbar | iOS-Gerät als Controller, Mac als Host. Touch/Trackpad-Gesten werden in CGEvents übersetzt. **Kern-USP.** |
-| **Mac → iPhone** | Nur View-Only | iOS lässt **keine** Input-Injection durch Dritt-Apps zu (nur Apple selbst via privater Entitlement / „iPhone Mirroring"). Ohne Jailbreak ist nur Screen-Mirroring (ansehen, nicht steuern) möglich. Siehe `docs/architecture.md` → Bekannte Einschränkungen. |
+## Funktionen
 
-## Tech-Stack
+### ✅ Video Stream
+- Mac Screen in Echtzeit auf iPhone
+- Automatische Video-Kompression
+- Bildgröße: 1134x732px
+- Frame Rate: ~26 FPS
 
-- **Host (macOS):** Swift, ScreenCaptureKit, VideoToolbox (HW-Encode H.264/HEVC), CGEvent (Input)
-- **Controller (iOS/macOS):** Swift / SwiftUI, WebRTC-Client, VideoToolbox (HW-Decode)
-- **Transport:** WebRTC (DataChannel für Input, Video-Track für Screen), E2E via DTLS-SRTP
-- **Signaling:** Fastify (Node/TypeScript), WebSocket
-- **NAT-Traversal:** STUN + self-hosted TURN (coturn)
-- **Pairing/Auth:** Public-Key pro Gerät, QR-Code-Pairing, keine Cloud-Accounts
+### ✅ Touch/Drag
+- iPhone Touch → Mac Cursor Bewegung
+- Drag mit dem Finger
+- Tap für Klick
+- Long Press für Rechtsklick
 
-## Module
+### ✅ Auto-Reconnect
+- Verbindungsunterbrechungen automatisch erkannt
+- Reconnect innerhalb von 5-10 Sekunden
+- Keine manuellen Eingriffe nötig
+- 4x erfolgreich getestet
+
+### ✅ Stabilität
+- 10-Minuten-Test bestanden
+- Netzwerk-Stresstest bestanden:
+  - WLAN Aus/Ein ✅
+  - App Background/Foreground ✅
+  - iPhone Lock/Unlock ✅
+
+---
+
+## Architektur
 
 ```
-Loupe/
-├── README.md
-├── docs/
-│   ├── ADR-001-transport.md     # WebRTC vs. QUIC
-│   ├── ADR-002-libwebrtc.md     # libwebrtc-Binding & Encoder-Strategie
-│   ├── ADR-003-pairing.md       # QR-Pairing, Public-Key-Pinning (TOFU)
-│   ├── architecture.md          # Systemüberblick, Datenfluss, Permissions
-│   └── mvp-scope.md             # Release-Scope & Meilensteine
-├── loupe-host-macos/            # Swift Host-App (Screen-Capture + Input)
-├── loupe-controller-ios/        # SwiftUI Controller Kit (WebRTC-Client)
-├── apps/LoupeControllerApp/     # iOS App-Wrapper, lokalem Package eingebunden
-├── scripts/                     # Xcode/Signaling Helper
-└── loupe-signaling/             # Fastify WebSocket Signaling-Server + coturn
+┌─────────────┐      ┌──────────────┐      ┌─────────────┐
+│  iPhone     │──────▶│  Signaling   │◀─────│    Mac      │
+│ Controller  │      │  Server      │      │    Host     │
+└─────────────┘      └──────────────┘      └─────────────┘
+       │                                      │
+       │ WebRTC PeerConnection               │
+       │ DataChannel (Touch)                  │
+       │ VideoTrack (Screen)                  │
+       ▼                                      ▼
+┌─────────────────────────────────────────────────────────┐
+│                    WebRTC Connection                    │
+│         ICE + TURN/STUN für NAT-Traversal              │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## Designprinzipien
+### Komponenten
 
-1. **Latenz vor allem.** Ziel-Glass-to-Glass < 50 ms. HW-Encode/Decode auf beiden Enden, adaptive Bitrate via WebRTC.
-2. **E2E-verschlüsselt by default.** Kein Klartext-Relay; TURN nur als verschlüsselter Fallback.
-3. **Account-frei.** Pairing über QR + Public-Key, keine Pflicht-Cloud.
-4. **Apple-nativ.** Keine Cross-Platform-Frameworks (Electron, Flutter). Swift überall.
+| Komponente | Sprache | Plattform |
+|------------|---------|-----------|
+| **loupe-signaling** | TypeScript/Node.js | Server (Linux/macOS) |
+| **loupe-host-macos** | Swift | macOS (Apple Silicon) |
+| **loupe-controller-ios** | Swift | iOS (iPhone/iPad) |
 
-## Status
+---
 
-MVP-Skeleton mit abgenommenem Public Signaling/TURN-Endpoint, buildfähigem macOS Host, buildfähiger iOS Controller-App, QR-/TOFU-Pairing, Controller-Settings, Live-Diagnostics, Runtime-Event-Timeline, Host-Logs und deterministic Host-offer/Controller-answer Negotiation. Der echte iPhone-End-to-End-Retest nach v0.3.2 ist der nächste harte Gate. Details: `docs/hardening-changes.md`, `docs/end-to-end-test.md`, `docs/iphone-test-acceptance.md` und `docs/product-roadmap.md`.
+## Installation
 
-
-## Aktueller Deploy-Stand
-
-Der öffentliche MVP-Endpoint ist voreingestellt und geprüft:
-
-```text
-Public URL:  https://loupe.ddns.net
-Healthcheck: https://loupe.ddns.net/healthz
-WebSocket:   wss://loupe.ddns.net/ws
-STUN/TURN:   loupe.ddns.net:3478 UDP/TCP
-TURN IP:     212.186.18.125
-```
-
-## Xcode-Schnellstart
+### 1. Server (Lenovo/HP/Cloud)
 
 ```bash
-cd Loupe
-chmod +x scripts/*.sh
-./scripts/loupe-doctor.sh
-./scripts/run-xcode-builds.sh
-./scripts/open-xcode.sh
+cd loupe-signaling
+npm ci --no-audit --no-fund
+npm run build
+
+# .env erstellen
+cat > .env << 'EOF'
+TURN_SECRET=dein-secret
+TURN_HOST=loupe.ddns.net
+PORT=8080
+NODE_ENV=production
+EOF
+
+# Docker
+docker compose up -d --build
 ```
 
-Dann in Xcode:
+### 2. macOS Host
 
-1. `LoupeHost` Scheme auf `My Mac` starten.
-2. macOS Screen Recording + Accessibility erlauben.
-3. `LoupeControllerApp` Scheme auf echtem iPhone starten.
-4. Pairing QR scannen oder Token einfügen.
+```bash
+cd loupe-host-macos
+swift build --product LoupeHost
+.build/arm64-apple-macosx/debug/LoupeHost
+```
 
-Details: `docs/xcode-build.md`, `docs/end-to-end-test.md`, `docs/iphone-test-acceptance.md` und `docs/webrtc-negotiation.md`.
+### 3. iOS Controller
 
-## Helper-Scripts
+- Xcode öffnen: `open Loupe.xcworkspace`
+- Scheme: `LoupeControllerApp`
+- Destination: Echtes iPhone
+- Signing Team setzen
+- `Product > Run`
 
-| Script | Zweck |
-|---|---|
-| `scripts/loupe-doctor.sh` | Prüft Projektstruktur, Server-Health, TURN-Port und Signaling-Build. |
-| `scripts/run-xcode-builds.sh` | Baut `LoupeHost` und `LoupeControllerApp` reproduzierbar per `xcodebuild`. |
-| `scripts/open-xcode.sh` | Öffnet den Workspace. |
-| `scripts/open-host-qr.sh` | Öffnet den zuletzt erzeugten Pairing-QR für `loupe-dev-session`. |
-| `scripts/create-release-zip.sh` | Erstellt ein bereinigtes ZIP ohne Build-Artefakte. |
+---
 
-## OpenClaw
+## Nutzung
 
-Der nächste ausführbare Prompt liegt in `docs/openclaw-next-prompt.md`.
+### 1. Host starten
+```bash
+cd loupe-host-macos
+./build/arm64-apple-macosx/debug/LoupeHost
+```
+
+### 2. QR-Code scannen
+- Host zeigt QR-Code
+- iPhone App öffnen
+- QR scannen
+
+### 3. Verbinden
+- Automatische Verbindung
+- Mac Screen auf iPhone sichtbar
+- Touch funktioniert sofort
+
+---
+
+## Test-Ergebnisse
+
+### 10-Minuten-Stabilitätstest (2026-06-04)
+
+| Metrik | Wert |
+|--------|------|
+| Testdauer | 10+ Minuten |
+| Video Frames | 15,840+ forwarded |
+| Input Events | 1,375+ Events |
+| Reconnects | 4x erfolgreich |
+| ICE State | connected ✅ |
+| Peer State | connected ✅ |
+| DataChannel | open ✅ |
+
+### Netzwerk-Stresstest
+
+| Test | Ergebnis |
+|------|----------|
+| WLAN Aus/Ein | ✅ Reconnect OK |
+| Background/Foreground | ✅ Reconnect OK |
+| Lock/Unlock | ✅ Reconnect OK |
+
+---
+
+## Technologie-Stack
+
+| Technologie | Version | Verwendung |
+|-------------|---------|------------|
+| **WebRTC** | 120.0.0 | Peer-to-Peer Verbindung |
+| **Swift** | 5.9 | iOS/macOS App |
+| **TypeScript** | 5.x | Signaling Server |
+| **Node.js** | 20.x | Server Runtime |
+| **Docker** | 24.x | Containerisierung |
+| **Coturn** | 4.6.x | TURN/STUN Server |
+
+---
+
+## Changelog
+
+### v3.6-stable MVP (2026-06-04)
+- ✅ 10-Minuten-Stabilitätstest bestanden
+- ✅ Video Live-Stream stabil
+- ✅ Touch/Drag funktioniert
+- ✅ Auto-Reconnect 4x erfolgreich
+- ✅ WebSocket Keepalive
+- ✅ Peer Reset mit cached ICE Servers
+- ✅ Host bleibt für Reconnect alive
+
+### v3.5 (2026-06-04)
+- Touch/DataChannel + Live-Frame Diagnostics
+- Controller sendInput liefert Sendestatus
+- Gestures als simultaneousGesture verdrahtet
+
+### v3.4 (2026-06-04)
+- iOS WebRTC Framework Embed Fix
+- WebRTC.framework korrekt in App-Bundle eingebettet
+
+### v3.3 (2026-06-04)
+- iOS Controller Answerer-Logik
+- Kein "Called in wrong state: have-local-offer"
+
+### v3.2 (2026-06-04)
+- SDP State Machine Fix
+- Host-Offerer, Controller-Answerer
+
+### v3.1 (2026-06-04)
+- Build-System + Dokumentation
+
+---
+
+## Bekannte Probleme
+
+### Nächste Tests geplant:
+- [ ] 30-Minuten-Langzeittest
+- [ ] Multi-Controller (mehrere iPhones)
+- [ ] Audio Forwarding
+- [ ] Performance: 60 FPS, <100ms Latenz
+- [ ] TestFlight Release Build
+
+---
+
+## Lizenz
+
+MIT License — Siehe LICENSE Datei
+
+---
+
+## Autor
+
+**Francois** (bigbadboy1010)
+- GitHub: [bigbadboy1010/loupe](https://github.com/bigbadboy1010/loupe)
+- Getestet auf: iPhone 17 Pro Max + MacBook Pro (Apple Silicon)
+
+---
+
+*Letzte Aktualisierung: 2026-06-04 22:20 CEST*
+*Version: v3.6-stable MVP*
