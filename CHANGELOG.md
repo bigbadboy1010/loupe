@@ -2,6 +2,77 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## v0.3.0-alpha — DTLSPinning protocol + loupe.app migration prep (2026-06-19)
+
+### Security: DTLS-fingerprint binding (ADR-003, decision 4)
+
+The long-promised DTLS-fingerprint binding is now implemented as a
+self-contained module. Both the host and the controller sign a
+canonical encoding of the two SDP fingerprints and exchange the
+signature over the `input` data channel. A MITM who injects their
+own DTLS certificate is now caught by the signature verification.
+
+New files:
+
+- `loupe-controller-ios/Sources/LoupeControllerKit/Pairing/DTLSPinning.swift`
+- `loupe-host-macos/Sources/LoupeHostKit/Pairing/DTLSPinning.swift`
+- `scripts/smoke-test-dtls-pinning.swift` (standalone smoke test)
+- `loupe-controller-ios/Tests/LoupeControllerKitTests/DTLSPinningTests.swift`
+  (XCTest version, runs in iOS-Simulator)
+
+The standalone smoke test exercises 8 cases (round-trip, version
+mismatch, fingerprint mismatch, MITM key, self-signed, base64URL
+round-trip, plus canonical-bytes symmetry + case normalisation) and
+passes them all:
+
+```
+$ scripts/smoke-test-dtls-pinning.swift
+ok    canonicalBytes are symmetric
+ok    canonicalBytes are lowercased
+ok    round-trip host signs, controller verifies
+ok    rejects wrong version
+ok    rejects wrong fingerprints
+ok    rejects wrong public key (MITM signs with own key)
+ok    rejects self-signed message (peerKey == ownKey)
+ok    base64URL round-trip is lossless
+=== DTLSPinning smoke test: 8 passed, 0 failed ===
+```
+
+The wire exchange is **not yet** wired into the live
+`WebRTCPeerConnection.dataChannel` flow. That integration is
+v0.3.0-final, planned for the next sprint. Until then, the protocol
+is implemented and unit-tested but not yet enforced on real
+connections.
+
+### Domain migration: loupe.ddns.net -> loupe.app
+
+`docs/DOMAIN-MIGRATION.md` lays out the DNS records we need at
+the registrar and the Caddy virtual host config that will serve
+the new hostname. The migration is **additive** for at least one
+minor version:
+
+- `loupe-host-macos/Sources/LoupeHostKit/Transport/LoupeEndpoint.swift`
+  defines `primary = signaling.loupe.app`, `legacy = loupe.ddns.net`,
+  and an `LOUPE_LEGACY_DNS=1` build-time flag that swaps the
+  priority. The v0.3 default is `LOUPE_LEGACY_DNS=1` so existing
+  users are not affected.
+- The cutover happens when the owner has registered the domain,
+  added the DNS records, and validated that the new signaling
+  endpoint works. The v0.4 release removes the legacy fallback.
+
+DNS records needed (apex `loupe.app`):
+
+| Name | Type | Value |
+|------|------|-------|
+| `loupe.app`           | A    | `212.186.18.125` |
+| `www.loupe.app`       | CNAME | `loupe.app` |
+| `signaling.loupe.app` | A    | `212.186.18.125` |
+| `appcast.loupe.app`   | A    | `212.186.18.125` (v0.4+) |
+| `downloads.loupe.app` | A    | `212.186.18.125` (v0.4+) |
+
+Plus a CAA record permitting Let's Encrypt to issue certs for
+the apex.
+
 ## v0.2.1-public-beta-tidyup — Public-Beta-Release-Hygiene (2026-06-19)
 
 Addresses every P0/P1 from the launch-readiness review, except
