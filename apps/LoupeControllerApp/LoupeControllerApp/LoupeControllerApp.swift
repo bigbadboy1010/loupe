@@ -378,6 +378,7 @@ private struct BigActionButton: View {
     }
 }
 
+@MainActor
 private struct PairingEntryView: View {
     @State private var pairingToken = ""
     @State private var viewModel: ControllerViewModel?

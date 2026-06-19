@@ -79,11 +79,9 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
         self.capture = capture
 
         wirePeerCallbacks(injector: injector)
-        signaling.onReconnected = { [weak self] in
-            Task { await self?.handleSignalingReconnected() }
-        }
         consumeSignaling()
 
+        installReconnectedHandler()
         signaling.connect()
         log("signaling connect requested")
         await signaling.send(.join(sessionId: sessionId, peerId: peerId, role: "host"))
@@ -98,7 +96,7 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
     public func stop() async {
         eventTask?.cancel()
         reconnectResetTask?.cancel()
-        signaling.onReconnected = nil
+        installReconnectedHandler(clear: true)
         await signaling.send(.leave(sessionId: sessionId))
         await capture?.stop()
         encoder?.invalidate()
@@ -197,6 +195,17 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
             guard let self else { return }
             for await event in self.signaling.events {
                 await self.handle(event)
+            }
+        }
+    }
+
+    private func installReconnectedHandler(clear: Bool = false) {
+        if clear {
+            signaling.onReconnected = nil
+        } else {
+            signaling.onReconnected = { [weak self] in
+                guard let self else { return }
+                Task { await self.handleSignalingReconnected() }
             }
         }
     }
