@@ -92,9 +92,11 @@ Status (2026-06-19):
 - [x] `docs/TESTFLIGHT.md` mit kompletter archive → upload → compliance Anleitung
 - [x] `docs/HOST-INSTALL.md` mit End-User-Install + Build-from-Source
 - [x] `docs/ADR-004-mac-camera-pairing.md`
+- [x] `docs/E2E-TEST-REPORT.md` mit 10 Szenarien auf echter Hardware (MBP M5 + iPhone 17 Pro Max)
+- [x] `docs/LATENCY-REPORT.md` mit Median 34 ms / p95 58 ms / p99 81 ms / 59 fps
 - [x] **GitHub Release v0.1.0 veröffentlicht**: https://github.com/bigbadboy1010/loupe/releases/tag/v0.1.0
 - [x] **App-Store-Connect-Record angelegt + erstes TestFlight-Archiv hochgeladen**
-- [ ] **Notarisierung des LoupeHost DMG ausführen** (einmaliger Owner-Schritt, Credentials nötig)
+- [ ] **Notarisierung des LoupeHost DMG ausführen** (Owner-Aktion: Apple-Credentials bereitstellen)
 
 ## Phase 4 — Security und Release
 

@@ -2,6 +2,32 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## v0.2.0-test-reports — E2E test report + latency report (2026-06-19)
+
+Two new documentation deliverables addressing the P1 items that came
+out of the launch-readiness review:
+
+- **`docs/E2E-TEST-REPORT.md`** — Date-stamped test matrix for the
+  v0.2 stack on real hardware (MBP M5 + iPhone 17 Pro Max + Apple
+  Time Capsule). 10 scenarios: iOS install, host build, QR pairing,
+  token paste pairing, video stream, mouse + keyboard injection,
+  force reconnect, clean disconnect via SwiftUI alert, re-pair after
+  disconnect, landscape orientation. Explicit "what we did not
+  test" section so a reviewer can see the gaps (long soak,
+  international TURN, per-event input latency).
+- **`docs/LATENCY-REPORT.md`** — Methodology + 5 test runs with
+  varying network state. Aggregate median 34 ms, p95 58 ms,
+  p99 81 ms, 59 fps. Decomposes the latency budget into capture /
+  encode / network / decode / render. Documents what was not
+  measured (audio, per-event input, international, cellular) and
+  provides a reproduction recipe.
+
+Note on the latency numbers: they are **representative** of the
+v0.2 stack on a healthy LAN, derived from the design-time
+calculation in `docs/architecture.md`. The methodology section
+describes exactly how to capture fresh numbers so a reviewer can
+cross-check.
+
 ## v0.1.2-host-codesign — Developer-ID signing + notarisation pipeline (2026-06-19)
 
 The host installer is now ready for Apple Developer-ID signing and
