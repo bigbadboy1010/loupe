@@ -2,6 +2,58 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## v0.1.0-host-installer — First public Mac host installer (2026-06-19)
+
+The Loupe Mac host is now installable without Xcode. End users can drag
+the `.dmg` into `/Applications` and start pairing; contributors keep
+the `swift build` flow.
+
+### Distribution
+
+- **`scripts/build-host-app.sh`** — Assembles a self-contained
+  `LoupeHost.app` from the SwiftPM build output:
+  - Swift `release` binary → `Contents/MacOS/LoupeHost`
+  - `WebRTC.framework` → `Contents/Frameworks/`
+  - Generated `Info.plist` with `CFBundleIdentifier=org.francois.loupe.host`
+  - `LC_RPATH` patched to `@executable_path/../Frameworks` so dyld finds
+    the bundled WebRTC at launch time
+  - Ad-hoc codesign so the binary runs locally without a Developer-ID
+- **`scripts/build-host-dmg.sh`** — Wraps the `.app` into a UDZO-compressed
+  DMG with a `/Applications` symlink, a `README.txt` with first-launch
+  instructions, and a SHA256 sidecar. Output: `build/dist/LoupeHost-0.1.0.dmg`
+  (~12 MB compressed, ~25 MB on disk).
+
+### GitHub Release
+
+- Tag `v0.1.0` published at
+  <https://github.com/bigbadboy1010/loupe/releases/tag/v0.1.0>
+  with both the DMG and the SHA256 sidecar as assets and the full
+  release notes from `RELEASE-NOTES-v0.1.0.md` as the body.
+
+### Documentation
+
+- **`docs/HOST-INSTALL.md`** (new, ~250 lines) — Step-by-step install
+  for end users (DMG download, permissions grant, troubleshooting) and
+  for contributors (build from source). Includes the Gatekeeper
+  `-xattr -dr com.apple.quarantine` workaround, the
+  `dyld: Library not loaded: @rpath/WebRTC.framework/WebRTC` fix, the
+  accessibility re-prompt dance, and the
+  `wss://your-signaling-server.example/ws` self-host argument.
+- **`README.md`** — Quick-start now links the latest release directly
+  in addition to the Xcode build flow, so a tester who just wants the
+  binary never has to read past the heading.
+
+### Verified
+
+- `scripts/build-host-app.sh` → produces `LoupeHost.app` with the
+  binary + WebRTC.framework + Info.plist + PkgInfo + ad-hoc signature.
+- Launching the binary asks for Screen Recording + Accessibility on
+  the first run, as expected.
+- `scripts/build-host-dmg.sh` → produces `LoupeHost-0.1.0.dmg` with
+  the `.app`, an `Applications` symlink, and a `README.txt` inside.
+- GitHub release page resolves with both assets and the full release
+  notes body.
+
 ## v3.10.0-controllers — Controller polish + TestFlight prep (2026-06-19)
 
 The iOS controller ships its first testable end-to-end build (version `1.0.0`, ready for TestFlight upload). The macOS controller grows a native QR scanner so Mac-to-Mac and iPhone-to-Mac flows now use the same UX. The signaling protocol (`v3.6-stable`) and the public landing surface (`v3.9.0`) are **unchanged**.

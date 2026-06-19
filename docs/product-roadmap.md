@@ -80,11 +80,19 @@ Status (2026-06-19):
 - [x] 3-Step `WelcomeFlow` (parallele zur iOS-App)
 - [x] Token-Paste + Token-Datei als Fallback
 
+**Mac Host (`LoupeHost`)**
+- [x] `.app`-Bundle via `scripts/build-host-app.sh` (25 MB, WebRTC.framework gebundled)
+- [x] DMG-Installer via `scripts/build-host-dmg.sh` (12 MB compressed)
+- [x] Ad-hoc-codesigned, `@executable_path/../Frameworks` rpath gesetzt
+- [x] GitHub Release v0.1.0 mit DMG + SHA256 veröffentlicht
+
 **Distribution**
 - [x] `docs/TESTFLIGHT.md` mit kompletter archive → upload → compliance Anleitung
+- [x] `docs/HOST-INSTALL.md` mit End-User-Install + Build-from-Source
 - [x] `docs/ADR-004-mac-camera-pairing.md`
-- [ ] **App-Store-Connect-Record anlegen** (Owner-Aktion, manuell)
-- [ ] **Erstes TestFlight-Archive** (`xcodebuild archive` + Upload)
+- [x] **GitHub Release v0.1.0 veröffentlicht**: https://github.com/bigbadboy1010/loupe/releases/tag/v0.1.0
+- [x] **App-Store-Connect-Record angelegt + erstes TestFlight-Archiv hochgeladen**
+- [ ] **Developer-ID-Signatur + Apple-Notarization für LoupeHost** (vor Public-Beta)
 
 ## Phase 4 — Security und Release
 

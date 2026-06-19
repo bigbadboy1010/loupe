@@ -36,6 +36,20 @@ Then in Xcode:
 
 The full device walkthrough is in [`docs/end-to-end-test.md`](docs/end-to-end-test.md) and the iPhone-specific acceptance criteria are in [`docs/iphone-test-acceptance.md`](docs/iphone-test-acceptance.md).
 
+## Installing LoupeHost on your Mac (no Xcode needed)
+
+If you just want to control a Mac from your iPhone without building
+anything, download the latest DMG:
+
+> 👉 **[LoupeHost-0.1.0.dmg (latest release)](https://github.com/bigbadboy1010/loupe/releases/latest)**
+
+Drag `LoupeHost.app` from the DMG into `/Applications`, open it, grant
+**Screen Recording** and **Accessibility** in System Settings, and you
+are ready to scan a QR code from the iPhone app. Full step-by-step
+instructions are in [`docs/HOST-INSTALL.md`](docs/HOST-INSTALL.md), and
+the troubleshooting section covers the usual Gatekeeper + permissions
+hiccups.
+
 ## Architecture at a glance
 
 ```
