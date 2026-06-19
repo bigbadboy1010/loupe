@@ -596,6 +596,7 @@ private struct PairingEntryView: View {
         }
     }
 
+    @MainActor
     private func connect(with payload: PairingPayload) {
         errorMessage = nil
         do {
@@ -644,6 +645,7 @@ private struct PairingEntryView: View {
         }
     }
 
+    @MainActor
     private func disconnect() {
         viewModel?.stop()
         viewModel = nil
