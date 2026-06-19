@@ -102,6 +102,7 @@
 				A10000000000000000000008 /* Frameworks */,
 				A10000000000000000000019 /* Embed Frameworks */,
 				A1000000000000000000000F /* Resources */,
+			1A18ADBFA527457E9C2FA038 /* Generate WebRTC stub dSYM */,
 			);
 			buildRules = (
 			);
@@ -164,6 +165,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+		1A18ADBFA527457E9C2FA038 /* Generate WebRTC stub dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Generate WebRTC stub dSYM";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/WebRTC.framework.dSYM",
+			);
+			shellScript = "set -e\nif [ -f \"${BUILT_PRODUCTS_DIR}/WebRTC.framework/WebRTC\" ] && [ ! -d \"${BUILT_PRODUCTS_DIR}/WebRTC.framework.dSYM\" ]; then\n  echo \"==> Generating stub dSYM for WebRTC.framework\"\n  mkdir -p \"${BUILT_PRODUCTS_DIR}/WebRTC.framework.dSYM/Contents/Resources/DWARF\"\n  cat > \"${BUILT_PRODUCTS_DIR}/WebRTC.framework.dSYM/Contents/Info.plist\" <<'PLIST'\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<plist version=\"1.0\"><dict>\n<key>CFBundleIdentifier</key><string>org.webrtc.WebRTC</string>\n<key>CFBundleName</key><string>WebRTC</string>\n<key>CFBundlePackageType</key><string>dSYM</string>\n<key>CFBundleVersion</key><string>1</string>\n<key>CFBundleShortVersionString</key><string>1.0</string>\n</dict></plist>\nPLIST\n  cp \"${BUILT_PRODUCTS_DIR}/WebRTC.framework/WebRTC\" \"${BUILT_PRODUCTS_DIR}/WebRTC.framework.dSYM/Contents/Resources/DWARF/WebRTC\"\n  echo \"   dSYM created at ${BUILT_PRODUCTS_DIR}/WebRTC.framework.dSYM\"\nfi\n";
+		};
+
 
 /* Begin PBXSourcesBuildPhase section */
 		A1000000000000000000000E /* Sources */ = {
