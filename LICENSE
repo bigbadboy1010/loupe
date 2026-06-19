@@ -1,0 +1,38 @@
+Loupe — Source-Available License (SLA-1.0)
+Copyright © 2026 Francois Alexandre De Lattre
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to:
+
+  1. View and read the source code for personal, educational, or evaluation
+     purposes.
+  2. Run the Software unmodified, in accordance with the license terms
+     included in the repository's README.
+  3. Submit patches back to the upstream project via pull requests, which
+     may be accepted or rejected at the maintainer's sole discretion.
+  4. Fork the repository for the purpose of contributing back upstream.
+
+The following uses are NOT permitted under this license without a separate
+written commercial agreement with the copyright holder:
+
+  a. Commercial use, including but not limited to:
+       - Selling the Software or any derivative work.
+       - Using the Software to provide a paid hosted service.
+       - Bundling the Software into a commercial product or device.
+       - Using the Software to provide competing remote-desktop products.
+  b. Redistribution of the Software or derivative works, in source or
+     binary form, except as explicitly permitted in clause 4 above.
+  c. Modifying the Software and distributing the modified version, except
+     as explicitly permitted in clause 4 above.
+  d. Removing or altering copyright notices, license headers, or
+     trademarks.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+For commercial licensing inquiries, contact: fdelattre1010@gmail.com
