@@ -586,6 +586,7 @@ private struct PairingEntryView: View {
         ].joined(separator: "\n")
     }
 
+    @MainActor
     private func connectFromToken() {
         let token = pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
