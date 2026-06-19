@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,follow" />
+    <title>Self-host Loupe — your own signaling node</title>
+    <meta
+      name="description"
+      content="Run your own Loupe signaling and TURN server on a $5/month VPS. The full step-by-step guide."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://loupe.ddns.net/docs/self-host.html" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Loupe home">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.4" />
+          <line x1="20.5" y1="20.5" x2="28" y2="28" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+        </svg>
+        <span class="brand-wordmark">Loupe</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/#how-it-works">How it works</a>
+        <a href="/#privacy">Privacy</a>
+        <a href="/docs/self-host.html">Self-host</a>
+        <a href="https://github.com/miggu69/loupe" rel="noopener noreferrer">Source</a>
+      </nav>
+    </header>
+
+    <main id="main" class="doc">
+      <h1>Self-host Loupe</h1>
+      <p class="lede">
+        Run your own signaling and TURN server on a $5/month VPS. Your devices, your metadata,
+        your firewall. About 20 minutes from a fresh VM to a working deployment.
+      </p>
+
+      <div class="callout">
+        <strong>Why self-host?</strong> The public <code>loupe.ddns.net</code> endpoint is fine
+        for getting started, but the signaling server does see connection metadata (IPs,
+        timing). If you don't want anyone — including Loupe — to see that, run your own. You
+        still need a Mac to host a session and an iPhone to control it; only the relay is
+        yours.
+      </div>
+
+      <h2>What you need</h2>
+      <ul>
+        <li>A Linux VPS with a public IPv4 address. $5/month tiers from Hetzner, DigitalOcean, or OVH are plenty.</li>
+        <li>A domain pointing an A record to that VPS (we'll use <code>signaling.example.com</code> as a placeholder).</li>
+        <li>Ports <code>80</code>, <code>443</code>, and <code>3478</code> reachable from the internet. UDP and TCP.</li>
+        <li>Docker + Docker Compose on the host.</li>
+      </ul>
+
+      <h2>1. Clone the repository</h2>
+      <pre><code>git clone https://github.com/miggu69/loupe.git
+cd loupe/loupe-signaling</code></pre>
+
+      <h2>2. Configure your environment</h2>
+      <pre><code>cp .env.example .env
+$EDITOR .env</code></pre>
+      <p>Set at minimum:</p>
+      <pre><code>TURN_SECRET="$(openssl rand -base64 48)"
+TURN_HOST=signaling.example.com
+TURN_REALM=signaling.example.com
+TURN_EXTERNAL_IP=203.0.113.10
+SERVE_SITE=true</code></pre>
+      <p>
+        <code>TURN_SECRET</code> must be the same value for the signaling service and coturn.
+        Both containers share it via the same <code>.env</code> file.
+      </p>
+
+      <h2>3. Reverse proxy with Caddy (automatic HTTPS)</h2>
+      <p>
+        Loupe is designed to run behind Caddy for automatic Let's Encrypt certificates. Drop a
+        <code>Caddyfile</code> next to your <code>docker-compose.yml</code>:
+      </p>
+      <pre><code>signaling.example.com {
+    reverse_proxy signaling:8080
+}</code></pre>
+      <p>Then in <code>docker-compose.yml</code>, add Caddy as a service:</p>
+      <pre><code>services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:</code></pre>
+
+      <h2>4. Boot it</h2>
+      <pre><code>docker compose up -d
+docker compose logs -f signaling</code></pre>
+      <p>
+        Wait for <code>"server listening"</code>. Then verify:
+      </p>
+      <pre><code>curl https://signaling.example.com/healthz</code></pre>
+      <p>Expected output:</p>
+      <pre><code>{"status":"ok","activeSessions":0,"pairingCodes":0,...}</code></pre>
+
+      <h2>5. Point the Loupe apps at your server</h2>
+      <p>
+        In the macOS Host app and iOS Controller app, replace the default
+        <code>https://loupe.ddns.net</code> with <code>https://signaling.example.com</code>. The
+        apps accept this in their settings.
+      </p>
+
+      <h2>6. (Recommended) Put the waitlist behind a different domain</h2>
+      <p>
+        If you want to host the marketing site too, just keep <code>SERVE_SITE=true</code>. If
+        you'd rather keep the waitlist off this server, set <code>SERVE_SITE=false</code> and
+        point your marketing domain's Caddy config at a static site elsewhere (Netlify,
+        Cloudflare Pages).
+      </p>
+
+      <h2>Maintenance</h2>
+      <h3>Updating</h3>
+      <pre><code>git pull
+docker compose build
+docker compose up -d</code></pre>
+
+      <h3>Rotating the TURN secret</h3>
+      <p>
+        Rotate <code>TURN_SECRET</code> every 90 days. Existing in-flight sessions will need to
+        reconnect once (the controller auto-reconnects within 5–10 seconds; see
+        <code>docs/stability-reconnect.md</code>).
+      </p>
+      <pre><code>NEW_SECRET="$(openssl rand -base64 48)"
+sed -i.bak "s|^TURN_SECRET=.*|TURN_SECRET=$NEW_SECRET|" .env
+docker compose up -d</code></pre>
+
+      <h3>Backups</h3>
+      <p>
+        There is no application state to back up. Sessions live in memory; pairing codes expire
+        in 5 minutes; the waitlist is the only persistent data. <code>tar czf backup.tgz
+        data/waitlist.jsonl .env</code> is enough.
+      </p>
+
+      <h2>Troubleshooting</h2>
+      <h3>STUN/TURN port unreachable</h3>
+      <p>
+        Check the firewall on your VPS. Both UDP and TCP need to be open on
+        <code>3478</code>. The relay ports (<code>49152–65535</code> by default) need UDP too.
+      </p>
+      <h3>Caddy won't issue a certificate</h3>
+      <p>
+        Make sure the A record resolves and that port 80 is reachable from the internet
+        (Let's Encrypt needs it for the HTTP-01 challenge).
+      </p>
+      <h3>Connections establish but video never appears</h3>
+      <p>
+        Almost always TURN. Run <code>docker compose logs coturn</code> and look for
+        <code>"allocation reached"</code> or <code>"quota reached"</code> messages. The default
+        coturn config has generous limits; this usually means <code>TURN_EXTERNAL_IP</code> is
+        wrong.
+      </p>
+
+      <p class="muted" style="margin-top: 48px; font-size: 14px;">
+        Found an issue? <a href="https://github.com/miggu69/loupe/issues/new">Open an issue</a>
+        or email <code>hello@loupe.ddns.net</code>.
+      </p>
+    </main>
+
+    <footer class="site-footer">
+      <p class="copyright">© 2026 Loupe · Made for Apple devices, not despite them.</p>
+    </footer>
+  </body>
+</html>

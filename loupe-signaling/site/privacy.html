@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,follow" />
+    <title>Privacy policy — Loupe</title>
+    <meta
+      name="description"
+      content="Loupe privacy policy: what the signaling server sees, what it never sees, and what data you give us."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://loupe.ddns.net/privacy.html" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Loupe home">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.4" />
+          <line x1="20.5" y1="20.5" x2="28" y2="28" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+        </svg>
+        <span class="brand-wordmark">Loupe</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/#how-it-works">How it works</a>
+        <a href="/#privacy">Privacy</a>
+        <a href="/docs/self-host.html">Self-host</a>
+        <a href="https://github.com/miggu69/loupe" rel="noopener noreferrer">Source</a>
+      </nav>
+    </header>
+
+    <main id="main" class="doc">
+      <h1>Privacy policy</h1>
+      <p class="lede">
+        Loupe is built so that the hard questions don't have to be asked. This page is the short
+        version of the data story; the long version is the source code.
+      </p>
+
+      <h2>What Loupe never sees</h2>
+      <ul>
+        <li>Your screen contents.</li>
+        <li>Your keystrokes, clicks, or touch input.</li>
+        <li>Your clipboard.</li>
+        <li>Your device names, your Apple ID, your iCloud data.</li>
+      </ul>
+      <p>
+        The screen stream and input channel are end-to-end encrypted with DTLS-SRTP between your
+        two devices. The signaling server only relays SDP offers, answers, and ICE candidates — it
+        does not have the keys, and it cannot decrypt the media.
+      </p>
+
+      <h2>What the public signaling server sees</h2>
+      <p>
+        If you use the default <code>loupe.ddns.net</code> signaling endpoint, the server sees:
+      </p>
+      <ul>
+        <li>That two devices are negotiating a session (timestamps, IP addresses).</li>
+        <li>The encrypted SDP blobs and ICE candidates (it cannot decrypt them).</li>
+        <li>Aggregate rate-limit counters per IP for abuse protection.</li>
+      </ul>
+      <p>
+        This metadata is kept in memory only, for the lifetime of a session (typically under 60
+        seconds idle), and is not logged to disk by default. Server logs are rotated daily and
+        retained for 14 days.
+      </p>
+
+      <h2>What you give us when you join the waitlist</h2>
+      <ul>
+        <li>Your email address.</li>
+        <li>The page that referred you (e.g. <code>/</code> vs <code>/docs/pricing.html</code>).</li>
+        <li>A timestamp.</li>
+      </ul>
+      <p>
+        The waitlist is stored on a single file on the Loupe server and is not shared with third
+        parties. When the beta opens, we email you once. You can ask us to delete your email at
+        any time by replying to that email.
+      </p>
+
+      <h2>Cookies and tracking</h2>
+      <p>
+        Loupe does not set any tracking cookies. The site does not embed any third-party scripts,
+        fonts, analytics, tag managers, or pixels. There is no Facebook pixel, no Google
+        Analytics, no Mixpanel, no Segment, no Hotjar. The site is fully static except for the
+        waitlist form and the pairing API.
+      </p>
+
+      <h2>If you self-host</h2>
+      <p>
+        If you run your own signaling server (see the <a href="/docs/self-host.html">self-host
+        guide</a>), none of your session metadata reaches us. You are the operator; you decide
+        your own retention policy.
+      </p>
+
+      <h2>Your rights (GDPR / DSGVO)</h2>
+      <p>
+        You have the right to access, correct, and delete any personal data we hold about you.
+        For the waitlist this means your email address and the timestamp it was added. To
+        exercise these rights, email <code>privacy@loupe.ddns.net</code>. We respond within
+        30 days.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        Material changes are announced on the GitHub release page and, if you are on the waitlist,
+        by email. The current version is always the one served from this URL.
+      </p>
+
+      <p class="muted" style="margin-top: 48px; font-size: 14px;">
+        Last updated: 2026-06-19.
+      </p>
+    </main>
+
+    <footer class="site-footer">
+      <p class="copyright">© 2026 Loupe · Made for Apple devices, not despite them.</p>
+    </footer>
+  </body>
+</html>

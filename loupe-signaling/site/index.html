@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0a0a0c" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
+
+    <title>Loupe — Remote desktop for people who live in the Apple ecosystem</title>
+    <meta
+      name="description"
+      content="Loupe is a private, account-free remote desktop for macOS and iPhone. Sub-50 ms glass-to-glass latency, end-to-end encrypted, open source."
+    />
+    <meta name="robots" content="index,follow" />
+    <meta name="application-name" content="Loupe" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://loupe.ddns.net/" />
+    <meta property="og:title" content="Loupe — Remote desktop for the Apple ecosystem" />
+    <meta
+      property="og:description"
+      content="Sub-50 ms remote desktop between your Mac and your iPhone. Account-free, end-to-end encrypted, open source."
+    />
+    <meta property="og:site_name" content="Loupe" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Loupe — Remote desktop for the Apple ecosystem" />
+    <meta
+      name="twitter:description"
+      content="Sub-50 ms remote desktop between your Mac and your iPhone. Account-free, end-to-end encrypted, open source."
+    />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="canonical" href="https://loupe.ddns.net/" />
+
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" role="banner">
+      <a class="brand" href="/" aria-label="Loupe home">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.4" />
+          <line
+            x1="20.5"
+            y1="20.5"
+            x2="28"
+            y2="28"
+            stroke="currentColor"
+            stroke-width="2.8"
+            stroke-linecap="round"
+          />
+        </svg>
+        <span class="brand-wordmark">Loupe</span>
+      </a>
+
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#how-it-works">How it works</a>
+        <a href="#privacy">Privacy</a>
+        <a href="/docs/self-host.html">Self-host</a>
+        <a href="https://github.com/miggu69/loupe" rel="noopener noreferrer">Source</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero">
+        <p class="eyebrow">Private remote desktop · macOS ↔ iPhone</p>
+        <h1 class="hero-title">
+          The remote desktop<br />your Apple devices<br />deserve.
+        </h1>
+        <p class="hero-sub">
+          Sub-50&nbsp;ms glass-to-glass. End-to-end encrypted. No account. No cloud. Open source.
+          Built for the people who already live inside the Apple ecosystem and don't want to
+          escape it to control a second screen.
+        </p>
+
+        <div class="hero-cta">
+          <form id="waitlist-form" class="waitlist" novalidate aria-describedby="waitlist-status">
+            <label class="visually-hidden" for="waitlist-email">Email address</label>
+            <input
+              id="waitlist-email"
+              name="email"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              required
+              placeholder="you@example.com"
+              aria-required="true"
+            />
+            <button type="submit" id="waitlist-submit">
+              <span class="label-default">Get the beta</span>
+              <span class="label-loading" aria-hidden="true">Joining…</span>
+            </button>
+          </form>
+          <p id="waitlist-status" class="waitlist-status" role="status" aria-live="polite"></p>
+        </div>
+
+        <p class="hero-foot">
+          Or try it right now — host a session on your Mac and scan the QR from any iPhone on the
+          same network.
+          <a href="https://github.com/miggu69/loupe#xcode-quickstart" rel="noopener noreferrer">
+            Build from source&nbsp;→
+          </a>
+        </p>
+      </section>
+
+      <section id="how-it-works" class="section">
+        <h2 class="section-title">Three principles.</h2>
+
+        <div class="grid">
+          <article class="card">
+            <div class="card-num">01</div>
+            <h3>Latency is the feature.</h3>
+            <p>
+              Hardware H.264 encode on the Mac, hardware decode on the iPhone, WebRTC under the
+              hood. The result feels local: 50&nbsp;ms or less end-to-end, measured from
+              touch-on-iPhone to pixels-on-Mac.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="card-num">02</div>
+            <h3>No account. No cloud.</h3>
+            <p>
+              Pair with a QR code or a short code — public-key TOFU, then encrypted. Loupe never
+              sees your screen, your keyboard, or your clipboard. Signaling is just SDP and ICE
+              relay; turn it off and the connection still works on the same network.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="card-num">03</div>
+            <h3>Apple-native on purpose.</h3>
+            <p>
+              Swift, SwiftUI, ScreenCaptureKit, VideoToolbox, CoreGraphics events. No Electron, no
+              Flutter, no cross-platform runtime. The parts that have to be Apple APIs are Apple
+              APIs; the rest is just transport.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="privacy" class="section">
+        <h2 class="section-title">What we can and can't see.</h2>
+
+        <div class="split">
+          <div class="split-col">
+            <h3>Loupe never sees</h3>
+            <ul class="clean">
+              <li>Your screen contents</li>
+              <li>Your keystrokes</li>
+              <li>Your mouse or touch input</li>
+              <li>Your clipboard</li>
+            </ul>
+          </div>
+          <div class="split-col">
+            <h3>The signaling server sees</h3>
+            <ul class="clean">
+              <li>That two devices are negotiating a session</li>
+              <li>The encrypted SDP and ICE candidates</li>
+              <li>Connection timing and counts (for rate-limiting)</li>
+            </ul>
+            <p class="muted">
+              Self-host if you want zero. Source and deployment guide in the repo.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-cta">
+        <h2 class="section-title">Be one of the first.</h2>
+        <p class="section-sub">
+          The closed beta opens in waves. Drop your email — you'll get an invite, a TestFlight
+          link when one is ready, and the occasional honest status update. No drip campaign, no
+          marketing automation.
+        </p>
+        <form id="waitlist-form-2" class="waitlist waitlist-wide" novalidate aria-describedby="waitlist-status-2">
+          <label class="visually-hidden" for="waitlist-email-2">Email address</label>
+          <input
+            id="waitlist-email-2"
+            name="email"
+            type="email"
+            inputmode="email"
+            autocomplete="email"
+            required
+            placeholder="you@example.com"
+            aria-required="true"
+          />
+          <button type="submit">
+            <span class="label-default">Join the waitlist</span>
+            <span class="label-loading" aria-hidden="true">Joining…</span>
+          </button>
+        </form>
+        <p id="waitlist-status-2" class="waitlist-status" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+      <div class="footer-grid">
+        <div>
+          <p class="footer-brand">Loupe</p>
+          <p class="footer-tag">Remote desktop for people who live in the Apple ecosystem.</p>
+        </div>
+        <nav aria-label="Footer">
+          <p class="footer-head">Product</p>
+          <ul class="clean">
+            <li><a href="/#how-it-works">How it works</a></li>
+            <li><a href="/#privacy">Privacy</a></li>
+            <li><a href="/docs/pricing.html">Pricing</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Resources">
+          <p class="footer-head">Resources</p>
+          <ul class="clean">
+            <li><a href="/docs/self-host.html">Self-host guide</a></li>
+            <li><a href="https://github.com/miggu69/loupe" rel="noopener noreferrer">GitHub</a></li>
+            <li><a href="/healthz" rel="noopener noreferrer">Server status</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Legal">
+          <p class="footer-head">Legal</p>
+          <ul class="clean">
+            <li><a href="/privacy.html">Privacy policy</a></li>
+            <li><a href="/imprint.html">Imprint</a></li>
+          </ul>
+        </nav>
+      </div>
+      <p class="copyright">© 2026 Loupe · Made for Apple devices, not despite them.</p>
+    </footer>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

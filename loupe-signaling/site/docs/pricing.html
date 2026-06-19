@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,follow" />
+    <title>Pricing — Loupe</title>
+    <meta
+      name="description"
+      content="How Loupe is priced: a working sketch of free, personal, and pro tiers, and why we won't lock features behind a subscription you don't need."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://loupe.ddns.net/docs/pricing.html" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Loupe home">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2.4" />
+          <line x1="20.5" y1="20.5" x2="28" y2="28" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+        </svg>
+        <span class="brand-wordmark">Loupe</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/#how-it-works">How it works</a>
+        <a href="/#privacy">Privacy</a>
+        <a href="/docs/self-host.html">Self-host</a>
+        <a href="https://github.com/miggu69/loupe" rel="noopener noreferrer">Source</a>
+      </nav>
+    </header>
+
+    <main id="main" class="doc">
+      <h1>Pricing</h1>
+      <p class="lede">
+        A working sketch of how Loupe will be priced. This isn't a final number — it's the
+        reasoning, so you can tell whether the answer will work for you.
+      </p>
+
+      <div class="callout">
+        <strong>Status: pre-launch.</strong> Pricing below is the direction we are
+        planning to ship, subject to change based on what beta users actually need. If you
+        joined the waitlist, you'll see the final numbers before they're public.
+      </div>
+
+      <h2>The three tiers</h2>
+
+      <h3>Free — forever, no account required</h3>
+      <ul>
+        <li>Two devices paired directly (your Mac and your iPhone).</li>
+        <li>Public signaling endpoint (<code>loupe.ddns.net</code>) included.</li>
+        <li>End-to-end encryption on every session.</li>
+        <li>Source-available, build it yourself if you prefer.</li>
+      </ul>
+      <p>
+        This tier is the test: if Free is good enough, we're done. If Free forces you to
+        self-host to be happy, we have work to do.
+      </p>
+
+      <h3>Personal — for people with several devices</h3>
+      <p>
+        Roughly <strong>€3/month</strong> or <strong>€30/year</strong>. Targets users who want
+        to control their home Mac, work Mac, and HTPC from a single iPhone (and back).
+      </p>
+      <ul>
+        <li>Up to 5 devices paired to one account.</li>
+        <li>Use the public signaling endpoint, or point the apps at your own.</li>
+        <li>Persistent pairing — no need to re-scan QR codes.</li>
+        <li>Email support, 48-hour response time.</li>
+      </ul>
+
+      <h3>Pro — for power users and small teams</h3>
+      <p>
+        Roughly <strong>€8/month</strong> or <strong>€80/year</strong>. The Power-User
+        tier.
+      </p>
+      <ul>
+        <li>Unlimited devices, unlimited sessions.</li>
+        <li>Multi-monitor selection (when we ship it).</li>
+        <li>Encrypted session recording for debugging.</li>
+        <li>Priority email support, 24-hour response time.</li>
+        <li>Early access to private beta features.</li>
+      </ul>
+
+      <h3>Self-host — always free, always allowed</h3>
+      <p>
+        Loupe is source-available. Self-host the signaling + TURN stack on a $5/month VPS and
+        nothing changes about the apps. You don't need any tier to do this. If you self-host,
+        Loupe receives nothing from you.
+      </p>
+
+      <h2>Why this shape?</h2>
+
+      <h3>Free is the front door</h3>
+      <p>
+        We don't gate the magic behind a paywall. The 50&nbsp;ms latency, the E2E encryption,
+        the Apple-native feel — those are not Pro features. They're why Loupe exists.
+      </p>
+
+      <h3>Personal is for "I just want it to work"</h3>
+      <p>
+        The friction in the Free tier isn't the price — it's the cognitive load. Re-scanning
+        QR codes when you change Wi-Fi. Re-pairing when your Mac updates. Personal removes
+        that load. €3/month is roughly the cost of one coffee, and the people who'd pay for it
+        are the ones who'd notice.
+      </p>
+
+      <h3>Pro is for "this is part of my workflow"</h3>
+      <p>
+        Pro exists because some users want to drive three monitors from an iPad, or record
+        themselves teaching a class via screen share, or use Loupe as a tool of their trade.
+        They're willing to pay real money, and they expect real responsiveness from us.
+      </p>
+
+      <h3>No B2B tier (yet)</h3>
+      <p>
+        We're deliberately not selling "Loupe for Teams" until the product is right for
+        individuals first. A remote desktop that breaks on a freelancer's Mac breaks even
+        harder inside a support team. We will get there — but not in 2026.
+      </p>
+
+      <h2>What we won't do</h2>
+      <ul>
+        <li><strong>No usage-based pricing.</strong> Your screen time is not a meter.</li>
+        <li><strong>No "unlock 4K" upsells.</strong> If your hardware can do it, you'll get it.</li>
+        <li><strong>No ads.</strong> Ever. Not in the apps, not on the site, not in your inbox.</li>
+        <li><strong>No selling or renting your data.</strong> We don't have any; see <a href="/privacy.html">/privacy</a>.</li>
+      </ul>
+
+      <p class="muted" style="margin-top: 48px; font-size: 14px;">
+        Have thoughts? Reply to the waitlist email when you get one, or open a discussion on
+        <a href="https://github.com/miggu69/loupe/discussions">GitHub Discussions</a>.
+      </p>
+    </main>
+
+    <footer class="site-footer">
+      <p class="copyright">© 2026 Loupe · Made for Apple devices, not despite them.</p>
+    </footer>
+  </body>
+</html>
