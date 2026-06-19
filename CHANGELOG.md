@@ -2,6 +2,41 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## v3.10.0-controllers — Controller polish + TestFlight prep (2026-06-19)
+
+The iOS controller ships its first testable end-to-end build (version `1.0.0`, ready for TestFlight upload). The macOS controller grows a native QR scanner so Mac-to-Mac and iPhone-to-Mac flows now use the same UX. The signaling protocol (`v3.6-stable`) and the public landing surface (`v3.9.0`) are **unchanged**.
+
+### iOS controller (`LoupeControllerApp`)
+- `FloatingConnectionBar` replaces `RemoteControlToolbar`. One row on iPhone, two rows on iPad, glassmorphism material, soft shadow, hairline stroke. Designed for thumb reach on iPhone Pro Max.
+- `ConnectionStatusPill` shows the live `iceConnectionState` colour (grey / orange / green / red) and the measured FPS as a small caption while live. Pulses softly while ICE is `checking`.
+- `InputModePicker` is now segmented with SF Symbols (`hand.point.up.left`, `rectangle.and.hand.point.up.left`, `arrow.up.and.down`) next to the label. `UIImpactFeedbackGenerator(.light)` gives a tactile bump on every mode switch.
+- Disconnect now goes through a SwiftUI alert (`Disconnect from this Mac?` / `Your iPhone will stop receiving video from the paired Mac.`) — destructive + cancel roles. Disconnects are no longer one-tap.
+- `ReconnectToast` shows briefly when the user triggers a manual reconnect, matching the iOS reachability pattern.
+- Keyboard sheet gains `presentationDragIndicator(.visible)` and matches Apple's detents API.
+- Welcome flow's "Show pairing token editor" link lands in the classic token-editor for power users; the same user-default flag is now honoured on first launch after install.
+- `ControllerInputMode` gains a `shortTitle` property so the segmented control fits next to the SF symbol on iPhone.
+- `MARKETING_VERSION` bumped from `1.0` to `1.0.0` (App Store standard).
+
+### TestFlight prep
+- `PrivacyInfo.xcprivacy` added to the bundle, declared in the Resources build phase. Reports `CA92.1` (UserDefaults), `C617.1` (FileTimestamp), `35F9.1` (SystemBootTime). Matches the actual usage of the trust store and the connection-uptime timer.
+- NSCameraUsageDescription and NSLocalNetworkUsageDescription were already in pbxproj — verified present.
+- App icon set has all 18 required sizes, branded (commit `72394c4`).
+- Code signing is `Apple Development` (automatic), Team `355NB9T0RJ`.
+- New `docs/TESTFLIGHT.md` documents the full archive → upload → compliance flow.
+
+### macOS controller (`LoupeControllerMacApp`)
+- New `MacQRScanner.swift` (AppKit + AVFoundation) with the same delegate shape as the iOS `QRScannerViewController`. SwiftUI `NSViewRepresentable` wrapper renders the camera preview inside a sheet, with viewfinder brackets and a graceful alert when the camera is denied or unavailable.
+- `MacPairingEntryView` now ships a three-step `WelcomeFlow` mirroring the iOS one (Welcome → Connect → Pair), with a `Show pairing token editor` link for power users.
+- Pairing form now offers three equal-footing flows: **Scan QR** (prominent, primary), **Paste token** (fallback), **Open file** (fallback). The "QR-Scan wird auf macOS nicht verwendet" hint is gone.
+- Reconnect and Disconnect buttons live in the sidebar (`NavigationSplitView`) instead of the toolbar, matching native macOS HIG.
+- The old "Mac-Hinweis" hardcoded notice has been deleted.
+
+### Documentation
+- `docs/ADR-004-mac-camera-pairing.md` — the decision record for shipping native QR on macOS, with the alternatives we considered (Catalyst, WebKit JS decoder, "keep token-only") and the consequences.
+- `docs/TESTFLIGHT.md` — end-to-end TestFlight + App Store procedure, including the export-compliance answers Loupe needs (HTTPS-only / standard crypto, exempt from EU annual submission).
+- `README.md` "Mac controller usage" rewritten to describe the three pairing flows and the camera-permission grant step.
+- `privacy.html` gains an "On-device permissions (camera)" section so users know scanning is on-device and how to revoke access.
+
 ## v3.9.0-landing-public — Public marketing layer (2026-06-19)
 
 The public-facing marketing surface for Loupe. The signaling protocol (`v3.6-stable`) is **unchanged**.

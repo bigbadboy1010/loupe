@@ -58,6 +58,34 @@ Features:
 - Diagnostics Export
 - Launch at Login optional
 
+## Phase 3 — Controller UX + TestFlight release
+
+Ziel: iOS-App ist TestFlight-ready, Mac Controller und iOS Controller bieten das gleiche Pairing-Erlebnis.
+
+Status (2026-06-19):
+
+**iOS-App (`LoupeControllerApp`)**
+- [x] `FloatingConnectionBar` (Apple-style Toolbar mit FPS-Pill + Haptics)
+- [x] Disconnect mit SwiftUI-Alert (Bestätigung)
+- [x] `ReconnectToast` (transient feedback)
+- [x] `PrivacyInfo.xcprivacy` (iOS 17+ Pflicht)
+- [x] `MARKETING_VERSION = 1.0.0`, `CURRENT_PROJECT_VERSION = 1`
+- [x] NSCameraUsageDescription + NSLocalNetworkUsageDescription in pbxproj
+- [x] Branding (App-Icon-Set, AccentColor #0A84FF)
+- [x] Echte Hardware-Verifikation: iPhone 17 Pro Max + Lenovo ThinkSystem SR650, Pairing in <3 s
+
+**Mac Controller (`LoupeControllerMacApp`)**
+- [x] Native `MenuBarExtra` mit Status-Indicator
+- [x] Native QR-Scanner (`AVCaptureSession` via `NSViewRepresentable`)
+- [x] 3-Step `WelcomeFlow` (parallele zur iOS-App)
+- [x] Token-Paste + Token-Datei als Fallback
+
+**Distribution**
+- [x] `docs/TESTFLIGHT.md` mit kompletter archive → upload → compliance Anleitung
+- [x] `docs/ADR-004-mac-camera-pairing.md`
+- [ ] **App-Store-Connect-Record anlegen** (Owner-Aktion, manuell)
+- [ ] **Erstes TestFlight-Archive** (`xcodebuild archive` + Upload)
+
 ## Phase 4 — Security und Release
 
 Ziel: TestFlight/macOS Distribution vorbereiten.
