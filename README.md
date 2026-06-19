@@ -20,7 +20,7 @@ Loupe is private remote desktop for people who live in the Apple ecosystem. It p
 ## Quick start (development)
 
 ```bash
-git clone https://github.com/miggu69/loupe
+git clone https://github.com/bigbadboy1010/loupe
 cd Loupe
 chmod +x scripts/*.sh
 ./scripts/loupe-doctor.sh       # Sanity check
