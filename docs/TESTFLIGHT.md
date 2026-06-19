@@ -14,9 +14,10 @@ and (later) shipping it to the App Store. Last validated against Xcode 27.0
 | `UILaunchScreen` (or storyboard) | Auto-generated via `INFOPLIST_KEY_UILaunchScreen_Generation = YES` |
 | `MARKETING_VERSION` (3 segments) | `1.0.0` |
 | `CURRENT_PROJECT_VERSION` (build number) | `1` |
-| App icon set, all required sizes | Done in the brand track (commit `72394c4`) |
+| App icon set, all required sizes | Done in the brand track (commit `72394c4`). Note: the icon PNGs must be RGB (no alpha channel) — see `docs/TESTFLIGHT-WEBRTC-DSYM.md` for context. |
 | Code signing identity | `Apple Development`, automatic, Team `355NB9T8RJ` |
 | `TARGETED_DEVICE_FAMILY` | `1,2` (iPhone + iPad) — **no Mac Catalyst** |
+| dSYMs for every binary in the archive | The app target gets one automatically. WebRTC.framework is a stripped prebuilt SwiftPM binary and needs a manual `dsymutil` pass — see `docs/TESTFLIGHT-WEBRTC-DSYM.md`. |
 
 TestFlight is technically available for macOS too — Apple supports it for
 iOS, iPadOS, macOS, tvOS, visionOS, and watchOS apps, and a TestFlight-flavoured
