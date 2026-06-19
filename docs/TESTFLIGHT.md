@@ -18,10 +18,32 @@ and (later) shipping it to the App Store. Last validated against Xcode 27.0
 | Code signing identity | `Apple Development`, automatic, Team `355NB9T8RJ` |
 | `TARGETED_DEVICE_FAMILY` | `1,2` (iPhone + iPad) — **no Mac Catalyst** |
 
-The macOS controller is **not** TestFlight-eligible — Apple has never shipped
-TestFlight for macOS. The mac controller ships either via the Mac App Store
-(after signing + notarisation) or as a Developer-ID build that users
-download from `loupe.ddns.net`. See `docs/ADR-004-mac-camera-pairing.md`.
+TestFlight is technically available for macOS too — Apple supports it for
+iOS, iPadOS, macOS, tvOS, visionOS, and watchOS apps, and a TestFlight-flavoured
+distribution of the macOS controller is possible in principle. In practice,
+for the LoupeHost binary we use the **Developer-ID + Notarisation** path
+instead because:
+
+- The LoupeHost uses `CGEventPost` to inject synthetic mouse and keyboard
+  events, which is forbidden inside the Mac App Store sandbox.
+- Screen Capture via `ScreenCaptureKit` and Accessibility APIs are gated by
+  user consent at the OS level, not by the App Store sandbox, so they work
+  fine in a Developer-ID-signed and notarised `.app` distributed via
+  `loupe.ddns.net` and `github.com/bigbadboy1010/loupe/releases`.
+- TestFlight's reviewer experience is designed for App Store–style apps and
+  adds friction (review windows, expiry dates) for a tool that users
+  typically run on their own machine.
+
+The macOS **controller** (`LoupeControllerMacApp`) is the same shape — no
+sandbox-banned APIs, just camera + WebRTC — and is therefore the part of
+the codebase that could be moved to TestFlight + Mac App Store without
+architectural changes. We have not yet done so because the host and the
+controller share a single Swift Package and we want to ship them together
+under one Developer-ID identity first.
+
+See `docs/ADR-004-mac-camera-pairing.md` for the macOS-pairing architecture
+and `docs/product-roadmap.md` for the planned Mac App Store / TestFlight
+track once the host is notarised.
 
 ## One-time App Store Connect setup
 
