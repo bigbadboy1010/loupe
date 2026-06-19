@@ -96,7 +96,7 @@ Status (2026-06-19):
 - [x] `docs/LATENCY-REPORT.md` mit Median 34 ms / p95 58 ms / p99 81 ms / 59 fps
 - [x] **GitHub Release v0.1.0 veröffentlicht**: https://github.com/bigbadboy1010/loupe/releases/tag/v0.1.0
 - [x] **App-Store-Connect-Record angelegt + erstes TestFlight-Archiv hochgeladen**
-- [ ] **Notarisierung des LoupeHost DMG ausführen** (Owner-Aktion: Apple-Credentials bereitstellen)
+- [x] **Notarisierung des LoupeHost DMG ausgeführt** ✅ (Submission 684cc2f6..., Accepted, Stapled, spctl-accepted)
 
 ## Phase 4 — Security und Release
 

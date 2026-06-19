@@ -2,6 +2,56 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## v0.2.0-host-notarised — Apple-notarised installer published (2026-06-19)
+
+The v0.1.0 host DMG in this GitHub Release has been replaced with an
+Apple-notarised build. Gatekeeper on a fresh Mac now accepts the bundle
+without the "downloaded from the internet" warning.
+
+### Apple notarisation
+
+- **Submission id:** 684cc2f6-1591-4f03-9c06-9e60741a04bc
+  (kept in the project's internal record for 90 days as per Apple's
+  `xcrun notarytool history` policy).
+- **Apple developer team:** 355NB9T8RJ (Francois Alexandre Marie
+  De Lattre).
+- **Auth:** App Store Connect API key (`api-key` mode), key id
+  `4S5KCC5NH6`, issuer `c0f24b9e-ebab-4ce8-b18c-8f089b9c1b8c`.
+  The `.p8` lives at `~/.apple-keys/AuthKey_4S5KCC5NH6.p8` on the
+  maintainer's Mac and is **not** in the repository.
+- **Signature:** Developer ID Application + hardened runtime +
+  Apple timestamp server token. Verified with
+  `codesign --verify --deep --strict` and
+  `spctl --assess --type execute` (output:
+  `accepted, source=Notarized Developer ID`).
+- **Staple:** ticket baked into the DMG via `xcrun stapler staple`,
+  verified with `xcrun stapler validate`.
+
+### Verified
+
+```
+$ spctl --assess --type execute -vv LoupeHost.app
+LoupeHost.app: accepted
+source=Notarized Developer ID
+origin=Developer ID Application: Francois Alexandre Marie De Lattre (355NB9T8RJ)
+```
+
+### Reproducing locally
+
+```bash
+cd ~/Desktop/Loupe
+APPLE_TEAM_ID=355NB9T8RJ \
+APPLE_AUTH_MODE=*** \
+APPLE_API_KEY_ID=4S5KCC5NH6 \
+APPLE_API_ISSUER_ID=c0f24b9e-ebab-4ce8-b18c-8f089b9c1b8c \
+APPLE_API_KEY_PATH=$HOME/...6.p8 \
+./scripts/release-host.sh
+```
+
+For CI, the GitHub Actions workflow
+`.github/workflows/release-host.yml` runs the same pipeline on every
+`v*` tag push and uploads the resulting DMG to the GitHub Release.
+
 ## v0.2.0-test-reports — E2E test report + latency report (2026-06-19)
 
 Two new documentation deliverables addressing the P1 items that came
