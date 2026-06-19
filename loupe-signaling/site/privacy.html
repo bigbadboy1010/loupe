@@ -86,6 +86,21 @@
         waitlist form and the pairing API.
       </p>
 
+      <h2>On-device permissions (camera)</h2>
+      <p>
+        The iOS and macOS controllers can scan a QR code from your Loupe host to pair. Scanning
+        happens entirely on your device using Apple's <code>AVFoundation</code> framework. The
+        decoded token never leaves the controller unless you explicitly tap <em>Connect</em>.
+        No images from the camera are recorded, stored, transmitted, or analysed beyond the
+        single QR decode that hands you back into the pairing flow.
+      </p>
+      <p>
+        Camera access is requested the first time you tap <em>Scan QR code</em>. You can revoke
+        it at any time in System Settings → Privacy & Security → Camera (macOS) or Settings →
+        Loupe → Camera (iOS). The controller continues to work for token-paste and token-file
+        pairing without camera access.
+      </p>
+
       <h2>If you self-host</h2>
       <p>
         If you run your own signaling server (see the <a href="/docs/self-host.html">self-host

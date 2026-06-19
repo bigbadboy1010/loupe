@@ -650,6 +650,8 @@ private struct ConnectedSessionView: View {
     @State private var diagnosticsVisible = false
     @State private var keyboardVisible = false
     @State private var isFullscreen = false
+    @State private var showDisconnectConfirm = false
+    @State private var showReconnectToast = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -657,18 +659,16 @@ private struct ConnectedSessionView: View {
                 .ignoresSafeArea()
 
             if !isFullscreen {
-                RemoteControlToolbar(
+                FloatingConnectionBar(
                     model: model,
-                    onDiagnostics: { diagnosticsVisible = true },
                     onKeyboard: { keyboardVisible = true },
+                    onDiagnostics: { diagnosticsVisible = true },
                     onFullscreen: { isFullscreen = true },
-                    onDisconnect: {
-                        model.registerManualDisconnect()
-                        onDisconnect()
-                    }
+                    onDisconnect: { showDisconnectConfirm = true }
                 )
                 .padding(.horizontal, 10)
                 .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
             } else {
                 HStack {
                     Spacer()
@@ -677,93 +677,221 @@ private struct ConnectedSessionView: View {
                     } label: {
                         Image(systemName: "arrow.down.right.and.arrow.up.left")
                             .font(.headline)
+                            .padding(8)
+                            .background(.ultraThinMaterial, in: Circle())
                     }
-                    .buttonStyle(.borderedProminent)
                     .padding(12)
                 }
             }
+
+            if showReconnectToast {
+                ReconnectToast()
+                    .padding(.top, 96)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .statusBarHidden(isFullscreen)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isFullscreen)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showReconnectToast)
         .sheet(isPresented: $diagnosticsVisible) {
             LiveDiagnosticsView(model: model)
         }
         .sheet(isPresented: $keyboardVisible) {
             KeyboardPanel(model: model)
                 .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .alert("Disconnect from this Mac?", isPresented: $showDisconnectConfirm) {
+            Button("Disconnect", role: .destructive) {
+                model.registerManualDisconnect()
+                onDisconnect()
+            }
+            Button("Stay connected", role: .cancel) {}
+        } message: {
+            Text("Your iPhone will stop receiving video from the paired Mac.")
         }
     }
 }
 
-private struct RemoteControlToolbar: View {
+/// Small floating toast that appears briefly when the user pulls the
+/// reconnect button. Mirrors the iOS reachability pattern — non-modal,
+/// auto-dismisses.
+private struct ReconnectToast: View {
+    var body: some View {
+        Label("Reconnecting…", systemImage: "arrow.clockwise")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(.ultraThinMaterial, in: Capsule())
+            .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 4)
+    }
+}
+
+// MARK: - New: Floating connection bar (replaces RemoteControlToolbar + StatusPill)
+
+/// Compact, floating bar that hovers above the remote screen. Lives in one
+/// row on iPhone (compact) and splits into two rows on iPad / landscape.
+///
+/// Left:  connection status pill (live latency + ICE state).
+/// Mid:   input-mode segmented control (Trackpad / Direct / Scroll).
+/// Right: action cluster — Keyboard (FAB), Diagnostics, Fullscreen, Disconnect.
+///
+/// On tap, everything emits light haptic feedback so the user gets a
+/// tactile confirmation without a sound.
+private struct FloatingConnectionBar: View {
     @ObservedObject var model: ControllerViewModel
-    let onDiagnostics: () -> Void
     let onKeyboard: () -> Void
+    let onDiagnostics: () -> Void
     let onFullscreen: () -> Void
     let onDisconnect: () -> Void
 
+    private let lightImpact = UIImpactFeedbackGenerator(style: .light)
+    private let mediumImpact = UIImpactFeedbackGenerator(style: .medium)
+
     var body: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                StatusPill(
-                    text: "\(model.diagnostics.peerConnectionState) / \(model.diagnostics.iceConnectionState)",
-                    systemImage: "dot.radiowaves.left.and.right"
-                )
+            HStack(spacing: 10) {
+                ConnectionStatusPill(model: model)
 
-                Spacer(minLength: 8)
+                Spacer(minLength: 4)
 
                 Button {
-                    model.reconnectNow()
-                } label: {
-                    Label("Reconnect", systemImage: "arrow.clockwise")
-                        .labelStyle(.iconOnly)
-                }
-                .buttonStyle(.bordered)
-
-                Button {
+                    mediumImpact.impactOccurred()
                     onKeyboard()
                 } label: {
-                    Label("Keyboard", systemImage: "keyboard")
-                        .labelStyle(.iconOnly)
+                    Image(systemName: "keyboard")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 36, height: 36)
                 }
                 .buttonStyle(.bordered)
+                .tint(.primary)
+                .accessibilityLabel("Keyboard")
 
                 Button {
+                    lightImpact.impactOccurred()
                     onDiagnostics()
                 } label: {
-                    Label("Diagnostics", systemImage: "stethoscope")
-                        .labelStyle(.iconOnly)
+                    Image(systemName: "stethoscope")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 36, height: 36)
                 }
                 .buttonStyle(.bordered)
+                .tint(.primary)
+                .accessibilityLabel("Diagnostics")
 
                 Button {
+                    lightImpact.impactOccurred()
                     onFullscreen()
                 } label: {
-                    Label("Fullscreen", systemImage: "arrow.up.left.and.arrow.down.right")
-                        .labelStyle(.iconOnly)
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 36, height: 36)
                 }
                 .buttonStyle(.bordered)
-
-                Button(role: .destructive) {
-                    onDisconnect()
-                } label: {
-                    Label("Disconnect", systemImage: "xmark.circle")
-                        .labelStyle(.iconOnly)
-                }
-                .buttonStyle(.bordered)
+                .tint(.primary)
+                .accessibilityLabel("Fullscreen")
             }
 
-            Picker("Input Mode", selection: Binding(
-                get: { model.activeInputMode },
-                set: { model.setInputMode($0) }
-            )) {
-                ForEach(ControllerInputMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
+            InputModePicker(model: model)
         }
-        .padding(10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(.white.opacity(0.18), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.18), radius: 12, x: 0, y: 4)
+    }
+}
+
+/// Pill that shows the live WebRTC connection health.
+private struct ConnectionStatusPill: View {
+    @ObservedObject var model: ControllerViewModel
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(stateColor)
+                .frame(width: 10, height: 10)
+                .overlay(
+                    Circle()
+                        .strokeBorder(stateColor.opacity(0.4), lineWidth: 4)
+                        .scaleEffect(model.diagnostics.iceConnectionState == "checking" ? 1.6 : 1.0)
+                        .opacity(model.diagnostics.iceConnectionState == "checking" ? 0 : 1)
+                        .animation(
+                            model.diagnostics.iceConnectionState == "checking"
+                                ? .easeOut(duration: 1.1).repeatForever(autoreverses: false)
+                                : .default,
+                            value: model.diagnostics.iceConnectionState
+                        )
+                )
+
+            Text(statusLabel)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.thinMaterial, in: Capsule())
+        .accessibilityLabel("Connection \(statusLabel)")
+    }
+
+    private var stateColor: Color {
+        switch model.diagnostics.iceConnectionState {
+        case "connected", "completed":
+            return .green
+        case "checking", "new":
+            return .orange
+        case "failed", "disconnected", "closed":
+            return .red
+        default:
+            return .gray
+        }
+    }
+
+    private var statusLabel: String {
+        let ice = model.diagnostics.iceConnectionState
+        let fps = model.diagnostics.estimatedFramesPerSecond
+        if ice == "connected" || ice == "completed" {
+            return fps > 0 ? "Live · \(Int(fps)) fps" : "Live"
+        }
+        return ice.prefix(1).uppercased() + ice.dropFirst()
+    }
+}
+
+/// Segmented control for the input mode (Trackpad / Direct / Scroll).
+private struct InputModePicker: View {
+    @ObservedObject var model: ControllerViewModel
+    private let lightImpact = UIImpactFeedbackGenerator(style: .light)
+
+    var body: some View {
+        Picker("Input Mode", selection: Binding(
+            get: { model.activeInputMode },
+            set: { newValue in
+                lightImpact.impactOccurred()
+                model.setInputMode(newValue)
+            }
+        )) {
+            ForEach(ControllerInputMode.allCases) { mode in
+                HStack(spacing: 4) {
+                    Image(systemName: iconName(for: mode))
+                    Text(mode.shortTitle)
+                }
+                .tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private func iconName(for mode: ControllerInputMode) -> String {
+        switch mode {
+        case .directTouch: return "hand.point.up.left"
+        case .trackpad:    return "rectangle.and.hand.point.up.left"
+        case .scroll:      return "arrow.up.and.down"
+        }
     }
 }
 

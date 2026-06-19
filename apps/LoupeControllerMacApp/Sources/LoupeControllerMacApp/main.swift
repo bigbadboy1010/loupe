@@ -450,6 +450,9 @@ private struct MacPairingEntryView: View {
     @State private var keyboardVisible = false
     @State private var importerVisible = false
     @State private var isFullscreen = false
+    @State private var showWelcome: Bool = !UserDefaults.standard.bool(forKey: "loupe.onboarding.completed.v1")
+    @State private var scannerVisible = false
+    @State private var scannerErrorMessage: String?
 
     private let controllerPeerId = MacDefaults.controllerPeerId()
     private let trustStore = UserDefaultsTrustStore(keyPrefix: MacDefaults.trustKeyPrefix)
@@ -460,6 +463,19 @@ private struct MacPairingEntryView: View {
         } detail: {
             if let viewModel {
                 connectedView(viewModel)
+            } else if showWelcome {
+                MacWelcomeFlow(
+                    onScanQR: { scannerVisible = true },
+                    onPaste: { pasteTokenFromClipboard() },
+                    onFileImport: { importerVisible = true },
+                    onShowAdvanced: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            UserDefaults.standard.set(true, forKey: "loupe.onboarding.completed.v1")
+                            showWelcome = false
+                        }
+                    }
+                )
+                .transition(.opacity)
             } else {
                 pairingForm
             }
@@ -470,6 +486,30 @@ private struct MacPairingEntryView: View {
             allowsMultipleSelection: false,
             onCompletion: loadTokenFile
         )
+        .sheet(isPresented: $scannerVisible) {
+            MacQRScannerSheet(
+                onScan: { value in
+                    scannerVisible = false
+                    pairingToken = value
+                    connectFromToken()
+                },
+                onCancel: { scannerVisible = false },
+                onError: { err in
+                    scannerErrorMessage = err.errorDescription
+                }
+            )
+        }
+        .alert(
+            "Camera unavailable",
+            isPresented: Binding(
+                get: { scannerErrorMessage != nil },
+                set: { if !$0 { scannerErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { scannerErrorMessage = nil }
+        } message: {
+            Text(scannerErrorMessage ?? "")
+        }
         .sheet(isPresented: $diagnosticsVisible) {
             if let viewModel {
                 MacDiagnosticsView(model: viewModel)
@@ -540,7 +580,7 @@ private struct MacPairingEntryView: View {
                 Label("Mac Controller", systemImage: "laptopcomputer")
                     .font(.largeTitle.bold())
 
-                Text("Dieser Controller ist für Mac-zu-Mac-Steuerung vorbereitet. QR-Scan wird auf macOS nicht verwendet; bitte Pairing Token aus der Host-Konsole kopieren oder als Textdatei öffnen.")
+                Text("Scan the QR code from your Mac Loupe host, paste a token from the host console, or open a token file. Pairs in under three seconds.")
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
 
@@ -555,27 +595,37 @@ private struct MacPairingEntryView: View {
 
                 HStack(spacing: 12) {
                     Button {
+                        scannerVisible = true
+                    } label: {
+                        Label("QR scannen", systemImage: "qrcode.viewfinder")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
                         pasteTokenFromClipboard()
                     } label: {
                         Label("Einfügen", systemImage: "doc.on.clipboard")
                     }
                     .buttonStyle(.bordered)
-
-                    Button {
-                        importerVisible = true
-                    } label: {
-                        Label("Token-Datei öffnen", systemImage: "doc.badge.plus")
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button {
-                        connectFromToken()
-                    } label: {
-                        Label("Verbinden", systemImage: "bolt.horizontal.circle")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(pairingToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+
+                Button {
+                    importerVisible = true
+                } label: {
+                    Label("Token-Datei öffnen", systemImage: "doc.badge.plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    connectFromToken()
+                } label: {
+                    Label("Verbinden", systemImage: "bolt.horizontal.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(pairingToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -583,7 +633,7 @@ private struct MacPairingEntryView: View {
                         .textSelection(.enabled)
                 }
 
-                MacInfoCard(title: "Schnellstart", value: "1. LoupeHost auf Ziel-Mac starten\n2. Pairing Token aus Host-Konsole kopieren\n3. Hier einfügen und verbinden\n4. Video, Trackpad, Scroll und Keyboard testen")
+                MacInfoCard(title: "Quick start", value: "1. Start the Loupe host on the Mac you want to control\n2. Open the host console — it prints a pairing token and a QR PNG\n3. Tap “QR scannen” to scan the QR with this Mac's camera, or paste the token\n4. Test video, trackpad, scroll, and keyboard")
             }
             .padding(24)
             .frame(maxWidth: 860, alignment: .leading)
@@ -886,5 +936,229 @@ private struct MacInfoCard: View {
         }
         .padding(14)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - Mac welcome flow
+//
+// Three-step onboarding matching the iOS app, plus a fallback “Show advanced”
+// link that drops the user into the classic token-editor view (for users who
+// already know what a pairing token is).
+private struct MacWelcomeFlow: View {
+    enum Step: Int, CaseIterable {
+        case welcome, connect, pair
+    }
+
+    let onScanQR: () -> Void
+    let onPaste: () -> Void
+    let onFileImport: () -> Void
+    let onShowAdvanced: () -> Void
+
+    @State private var step: Step = .welcome
+    @State private var qrPulse: Bool = false
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: 0)
+
+            switch step {
+            case .welcome:
+                welcomeStep
+            case .connect:
+                connectStep
+            case .pair:
+                pairStep
+            }
+
+            Spacer(minLength: 0)
+
+            PageIndicator(steps: Step.allCases.count, current: step.rawValue)
+        }
+        .padding(32)
+        .frame(minWidth: 420, minHeight: 460)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.93, green: 0.95, blue: 1.00),
+                    Color(red: 0.98, green: 0.99, blue: 1.00),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
+                qrPulse.toggle()
+            }
+        }
+    }
+
+    // Step 1 — welcome
+    private var welcomeStep: some View {
+        VStack(spacing: 18) {
+            MacHeroLogo()
+                .frame(width: 96, height: 96)
+
+            Text("Welcome to Loupe")
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+
+            Text("Apple-native remote desktop. Fast, private, account-free.")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { step = .connect }
+            } label: {
+                Label("Get started", systemImage: "arrow.right")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+            .controlSize(.large)
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+
+            Button("Show pairing token editor", action: onShowAdvanced)
+                .buttonStyle(.link)
+        }
+    }
+
+    // Step 2 — connect
+    private var connectStep: some View {
+        VStack(spacing: 18) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.white.opacity(0.7))
+                    .frame(width: 200, height: 200)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.4), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+
+                Image(systemName: "qrcode.viewfinder")
+                    .font(.system(size: 90, weight: .light))
+                    .foregroundStyle(Color.accentColor)
+                    .scaleEffect(qrPulse ? 1.06 : 1.0)
+            }
+
+            Text("Open the Loupe host on the Mac you want to control, then tap the QR button below.")
+                .font(.title3)
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
+
+            Text("Loupe pairs in under three seconds. No accounts, no email.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { step = .pair }
+            } label: {
+                Label("Got it", systemImage: "arrow.right")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+            .controlSize(.large)
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    // Step 3 — pick a flow (scan / paste / file)
+    private var pairStep: some View {
+        VStack(spacing: 18) {
+            Text("Scan, paste, or open a file")
+                .font(.title.bold())
+
+            Text("Pick whichever feels easiest.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Button(action: onScanQR) {
+                Label("Scan QR code", systemImage: "qrcode.viewfinder")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .controlSize(.large)
+            .buttonStyle(.borderedProminent)
+
+            HStack(spacing: 12) {
+                Button(action: onPaste) {
+                    Label("Paste token", systemImage: "doc.on.clipboard")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                }
+                .controlSize(.large)
+                .buttonStyle(.bordered)
+
+                Button(action: onFileImport) {
+                    Label("Open file", systemImage: "doc.badge.plus")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                }
+                .controlSize(.large)
+                .buttonStyle(.bordered)
+            }
+
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundStyle(Color.accentColor)
+                Text("Camera and microphone stay on this Mac. Nothing leaves your network.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 4)
+
+            Button("Show pairing token editor", action: onShowAdvanced)
+                .buttonStyle(.link)
+                .padding(.top, 6)
+        }
+    }
+}
+
+private struct MacHeroLogo: View {
+    @State private var rotation: Double = 0
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.accentColor.opacity(0.85),
+                            Color.accentColor.opacity(0.55),
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 60
+                    )
+                )
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 1.5))
+
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 44, weight: .regular))
+                .foregroundStyle(.white)
+                .rotationEffect(.degrees(rotation))
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
+                rotation = -10
+            }
+        }
+    }
+}
+
+private struct PageIndicator: View {
+    let steps: Int
+    let current: Int
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(0..<steps, id: \.self) { i in
+                Capsule()
+                    .fill(i == current ? Color.accentColor : Color.gray.opacity(0.3))
+                    .frame(width: i == current ? 22 : 8, height: 8)
+                    .animation(.easeInOut(duration: 0.25), value: current)
+            }
+        }
     }
 }
