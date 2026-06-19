@@ -16,6 +16,16 @@ public enum ControllerInputMode: String, CaseIterable, Identifiable, Sendable, C
         }
     }
 
+    /// Short label used in the floating connection bar (saves horizontal space
+    /// on iPhone and looks better next to the SF Symbol in the segmented control).
+    public var shortTitle: String {
+        switch self {
+        case .directTouch: return "Touch"
+        case .trackpad:    return "Track"
+        case .scroll:      return "Scroll"
+        }
+    }
+
     public var hint: String {
         switch self {
         case .directTouch:

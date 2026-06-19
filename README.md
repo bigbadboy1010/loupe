@@ -232,9 +232,19 @@ Loupe currently supports these controller targets:
 - iPhone via `LoupeControllerApp`
 - iPad via the same universal `LoupeControllerApp` target
 - Mac via `LoupeControllerApp` when running as Designed for iPad / Mac Catalyst where supported
-- Native macOS controller wrapper via `apps/LoupeControllerMacApp`
+- Native macOS controller via `apps/LoupeControllerMacApp` (MenuBar app + QR scanner)
 
-For Mac controller usage, QR camera scanning is not required. Copy the LoupeHost pairing token from the host console and paste it into the controller, or open a text file containing the token.
+For Mac controller usage, **any of these pairing flows work** — the macOS controller
+ships a native QR scanner built on AVFoundation, so you can:
+
+1. **Scan QR** — point the Mac's FaceTime/Continuity Camera at the QR code that
+   `LoupeHost` writes to `/tmp/loupe-pairing-*.png`.
+2. **Paste a token** — copy the token from the LoupeHost console output and paste it
+   into the controller's text field.
+3. **Open a token file** — point the controller at a text file containing the token
+   (handy when you exported it from the host).
+
+Grant camera access once on first use: System Settings → Privacy & Security → Camera.
 
 Native Mac controller quick start:
 
