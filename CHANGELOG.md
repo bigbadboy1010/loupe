@@ -2,6 +2,38 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## v0.1.1-host-installer-tidyup — Impressum hardening + licence polish (2026-06-19)
+
+A small follow-up to the v0.1.0 host installer that addresses reviewer
+feedback on private-data exposure and licence clarity.
+
+### Legal
+
+- **`loupe-signaling/site/imprint.html`** — remove the personal phone
+  number, promote the project mailbox to the preferred contact, and
+  add a short "no phone number published" explanation. Reduces the
+  surface of personal contact data exposed on a public legal page
+  while keeping the legally required name + address (§ 5 ECG).
+- **`LICENSE`** — restructure the Loupe Source-Available License 1.0
+  with three explicit sections (Granted Permissions / Not Permitted
+  Without Written Agreement / Disclaimer), a third-party component
+  inventory (libwebrtc, coturn, Fastify, Apple frameworks), and an
+  "Updates to this license" note. Commercial contact now points at
+  `hello@loupe.ddns.net` (project) with the direct address as fallback.
+
+### Tooling
+
+- **`scripts/print-licences.sh`** (new) — Generate a combined licence
+  inventory for Loupe + libwebrtc + coturn + Fastify + Apple frameworks
+  + Node.js + npm + SwiftPM. The LICENSE references this script as the
+  canonical compliance source.
+
+### House-keeping
+
+- Delete the older `scripts/build-mac-host-app.sh`; it was an
+  incomplete ancestor of `scripts/build-host-app.sh` which has the
+  full rpath fixup + WebRTC.framework bundling logic.
+
 ## v0.1.0-host-installer — First public Mac host installer (2026-06-19)
 
 The Loupe Mac host is now installable without Xcode. End users can drag

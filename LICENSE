@@ -1,38 +1,103 @@
 Loupe — Source-Available License (SLA-1.0)
 Copyright © 2026 Francois Alexandre De Lattre
 
+================================================================================
+GRANTED PERMISSIONS
+================================================================================
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to:
 
   1. View and read the source code for personal, educational, or evaluation
      purposes.
-  2. Run the Software unmodified, in accordance with the license terms
-     included in the repository's README.
-  3. Submit patches back to the upstream project via pull requests, which
+  2. Run the Software unmodified, on any number of devices, in accordance
+     with the license terms in the repository's README.
+  3. Modify the Software for personal, non-redistributed use (your own
+     forks, your own servers, your own devices).
+  4. Self-host the signaling server, coturn instance, and the website,
+     for personal or organisational use, without redistribution.
+  5. Submit patches back to the upstream project via pull requests, which
      may be accepted or rejected at the maintainer's sole discretion.
-  4. Fork the repository for the purpose of contributing back upstream.
+  6. Fork the repository for the purpose of contributing back upstream,
+     provided the fork's README and any user-facing surfaces clearly mark
+     it as a fork of upstream and link back to
+     <https://github.com/bigbadboy1010/loupe>.
+
+================================================================================
+NOT PERMITTED WITHOUT A WRITTEN COMMERCIAL AGREEMENT
+================================================================================
 
 The following uses are NOT permitted under this license without a separate
 written commercial agreement with the copyright holder:
 
   a. Commercial use, including but not limited to:
-       - Selling the Software or any derivative work.
+       - Selling the Software, any derivative work, or any service that
+         embeds the Software.
        - Using the Software to provide a paid hosted service.
        - Bundling the Software into a commercial product or device.
-       - Using the Software to provide competing remote-desktop products.
+       - Using the Software, in whole or in part, to provide competing
+         remote-desktop, screen-sharing, or input-injection products.
+       - Using the Software within a business workflow in a way that
+         replaces a paid commercial alternative that the user would
+         otherwise purchase.
   b. Redistribution of the Software or derivative works, in source or
-     binary form, except as explicitly permitted in clause 4 above.
-  c. Modifying the Software and distributing the modified version, except
-     as explicitly permitted in clause 4 above.
+     binary form, except as explicitly permitted in clauses 5 and 6
+     above (PRs and forks-for-contribution).
+  c. Modifying the Software and distributing the modified version, in
+     source or binary form, except as explicitly permitted in clauses
+     5 and 6 above.
   d. Removing or altering copyright notices, license headers, or
-     trademarks.
+     trademarks of the upstream project.
+  e. Using the Loupe name, logo, or trademarks in any way that suggests
+     endorsement of a derivative product or service.
+
+================================================================================
+DISCLAIMER
+================================================================================
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF,
 OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-For commercial licensing inquiries, contact: fdelattre1010@gmail.com
+Some jurisdictions do not allow the exclusion of certain warranties or the
+limitation or exclusion of liability for incidental or consequential
+damages. In such jurisdictions, the above limitations and exclusions apply
+only to the extent permitted by applicable law.
+
+================================================================================
+COMMERCIAL LICENSING
+================================================================================
+
+For commercial licensing inquiries, contact:
+
+  hello@loupe.ddns.net    (project mailbox; preferred)
+  fdelattre1010@gmail.com (direct)
+
+================================================================================
+THIRD-PARTY COMPONENTS
+================================================================================
+
+Loupe bundles or depends on third-party components that are licensed under
+their own terms. Notable components:
+
+  - libwebrtc         (BSD-3-Clause)
+  - coturn            (https://github.com/coturn/coturn/blob/master/LICENSE)
+  - Fastify           (MIT)
+  - Apple's CryptoKit, SwiftUI, UIKit, AVFoundation, ScreenCaptureKit,
+    CoreGraphics (standard Apple frameworks)
+
+The complete third-party licence inventory is generated by
+`scripts/print-licences.sh` in this repository.
+
+================================================================================
+UPDATES TO THIS LICENSE
+================================================================================
+
+The copyright holder may publish revised versions of this license. The
+version applicable to a given copy of the Software is the version that was
+in effect at the time you obtained that copy. Material changes will be
+announced in the project's CHANGELOG.md and on the public website.
