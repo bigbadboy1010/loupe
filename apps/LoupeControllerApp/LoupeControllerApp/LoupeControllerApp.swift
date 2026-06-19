@@ -80,12 +80,295 @@ private enum ActiveSheet: Identifiable {
     }
 }
 
+private enum OnboardingStep: Int, CaseIterable {
+    case welcome
+    case connect
+    case pair
+
+    var title: String {
+        switch self {
+        case .welcome: return "Welcome to Loupe"
+        case .connect: return "Open on your Mac"
+        case .pair:    return "Connect"
+        }
+    }
+}
+
+private struct WelcomeFlow: View {
+    let onScanQR: () -> Void
+    let onPaste: () -> Void
+    let onFileImport: () -> Void
+    let onShowAdvanced: () -> Void
+
+    @State private var step: OnboardingStep = {
+        // Debug-only: allow skipping to a specific step via launch argument
+        // e.g. `xcrun simctl launch ... org.francois.loupe -startStep 1`
+        if let raw = UserDefaults.standard.string(forKey: "loupe.debug.startStep"),
+           let value = Int(raw), let s = OnboardingStep(rawValue: value) {
+            return s
+        }
+        return .welcome
+    }()
+    @State private var qrPulse: Bool = false
+
+    var body: some View {
+        ZStack {
+            // Layered background — subtle gradient + animated orbs (Apple-style depth)
+            LinearGradient(
+                colors: [
+                    Color(.systemBackground),
+                    Color.accentColor.opacity(0.08),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            // Floating accent orb
+            Circle()
+                .fill(Color.accentColor.opacity(0.18))
+                .frame(width: 320, height: 320)
+                .blur(radius: 80)
+                .offset(x: 140, y: -260)
+                .allowsHitTesting(false)
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 12)
+                LoupeHeroLogo()
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 24)
+                stepContent
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .trailing)),
+                        removal: .opacity.combined(with: .move(edge: .leading))
+                    ))
+                    .id(step)
+                Spacer(minLength: 12)
+                stepIndicator
+                    .padding(.bottom, 12)
+                Spacer(minLength: 8)
+                if step == .pair {
+                    quickActions
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 16)
+                } else {
+                    primaryAction
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
+                }
+                advancedLink
+                    .padding(.bottom, 12)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
+                qrPulse.toggle()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var stepContent: some View {
+        switch step {
+        case .welcome:
+            VStack(spacing: 14) {
+                Text("Loupe")
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                Text("Apple-native remote desktop.\nFast, private, account-free.")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+        case .connect:
+            VStack(spacing: 18) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(Color(.secondarySystemBackground))
+                        .frame(width: 200, height: 200)
+                        .shadow(color: .accentColor.opacity(0.25), radius: 28, x: 0, y: 12)
+                    Image(systemName: "qrcode.viewfinder")
+                        .font(.system(size: 96, weight: .light))
+                        .foregroundStyle(Color.accentColor)
+                        .scaleEffect(qrPulse ? 1.06 : 1.0)
+                        .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: qrPulse)
+                }
+                .padding(.top, 4)
+                Text("Open loupe.ddns.net on your Mac,\nthen tap the QR button below.")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                Text("Loupe pairs in under three seconds. No accounts, no email.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+        case .pair:
+            VStack(spacing: 14) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 64, weight: .light))
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.bottom, 4)
+                Text("Scan, paste, or open a file")
+                    .font(.title2.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                Text("Pick whichever feels easiest.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var stepIndicator: some View {
+        HStack(spacing: 8) {
+            ForEach(OnboardingStep.allCases, id: \.self) { s in
+                Capsule()
+                    .fill(s == step ? Color.accentColor : Color.secondary.opacity(0.25))
+                    .frame(width: s == step ? 24 : 8, height: 8)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: step)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var primaryAction: some View {
+        Button {
+            advance()
+        } label: {
+            HStack(spacing: 8) {
+                Text(step == .connect ? "Got it" : "Get started")
+                    .font(.headline)
+                Image(systemName: "arrow.right")
+                    .font(.headline)
+            }
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.accentColor)
+            )
+            .foregroundStyle(.white)
+        }
+        .accessibilityHint(step == .connect ? "Continue to pairing" : "Begin onboarding")
+    }
+
+    @ViewBuilder
+    private var quickActions: some View {
+        VStack(spacing: 12) {
+            BigActionButton(
+                title: "Scan QR code",
+                systemImage: "qrcode.viewfinder",
+                primary: true,
+                disabled: !AppPlatform.supportsCameraPairing,
+                action: {
+                    onScanQR()
+                }
+            )
+            HStack(spacing: 12) {
+                BigActionButton(
+                    title: "Paste token",
+                    systemImage: "doc.on.clipboard",
+                    primary: false,
+                    disabled: false,
+                    action: onPaste
+                )
+                BigActionButton(
+                    title: "Open file",
+                    systemImage: "doc.badge.plus",
+                    primary: false,
+                    disabled: false,
+                    action: onFileImport
+                )
+            }
+        }
+    }
+
+    private var advancedLink: some View {
+        Button("Show pairing token editor", action: onShowAdvanced)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(.vertical, 8)
+    }
+
+    private func advance() {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+            if let next = OnboardingStep(rawValue: step.rawValue + 1) {
+                step = next
+            }
+        }
+    }
+}
+
+private struct LoupeHeroLogo: View {
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 1)
+                .frame(width: 160, height: 160)
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.accentColor, Color.accentColor.opacity(0.65)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 120, height: 120)
+                .shadow(color: .accentColor.opacity(0.35), radius: 20, x: 0, y: 12)
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 60, weight: .medium))
+                .foregroundStyle(.white)
+                .rotationEffect(.degrees(rotation))
+                .offset(x: 18, y: 18)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
+                rotation = -10
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct BigActionButton: View {
+    let title: String
+    let systemImage: String
+    let primary: Bool
+    let disabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.title3)
+                Text(title)
+                    .font(.headline)
+            }
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(primary ? Color.accentColor : Color(.secondarySystemBackground))
+            )
+            .foregroundStyle(primary ? Color.white : Color.primary)
+        }
+        .disabled(disabled)
+        .opacity(disabled ? 0.5 : 1)
+        .accessibilityLabel(title)
+    }
+}
+
 private struct PairingEntryView: View {
     @State private var pairingToken = ""
     @State private var viewModel: ControllerViewModel?
     @State private var errorMessage: String?
     @State private var activeSheet: ActiveSheet?
     @State private var isTokenImporterPresented = false
+    @State private var showWelcome: Bool = !UserDefaults.standard.bool(forKey: "loupe.onboarding.completed.v1")
 
     private let controllerPeerId = AppDefaults.controllerPeerId()
     private let trustStore = UserDefaultsTrustStore(keyPrefix: AppDefaults.trustKeyPrefix)
@@ -97,6 +380,17 @@ private struct PairingEntryView: View {
                     ConnectedSessionView(model: viewModel) {
                         disconnect()
                     }
+                } else if showWelcome {
+                    WelcomeFlow(
+                        onScanQR: { activeSheet = .scanner },
+                        onPaste: { pasteTokenFromClipboard() },
+                        onFileImport: { isTokenImporterPresented = true },
+                        onShowAdvanced: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showWelcome = false
+                            }
+                        }
+                    )
                 } else {
                     connectionForm
                 }
