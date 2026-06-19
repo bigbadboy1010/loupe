@@ -94,7 +94,11 @@ Status (2026-06-19):
 - [x] `docs/ADR-004-mac-camera-pairing.md`
 - [x] `docs/E2E-TEST-REPORT.md` mit 10 Szenarien auf echter Hardware (MBP M5 + iPhone 17 Pro Max)
 - [x] `docs/LATENCY-REPORT.md` mit Median 34 ms / p95 58 ms / p99 81 ms / 59 fps
-- [x] **GitHub Release v0.1.0 veröffentlicht**: https://github.com/bigbadboy1010/loupe/releases/tag/v0.1.0
+- [x] `docs/TURN-COST-LIMIT.md` mit 3 Layer Defence + Cost Envelope + Abuse Response
+- [x] `docs/ADR-003-pairing.md` mit ehrlichem Status-Table (3/4 implemented, #4 in v0.3)
+- [x] `loupe-signaling/src/server.ts` `/healthz` slimmed (kein internal Telemetry-Leak)
+- [x] **GitHub Release v0.2.0 veröffentlicht** (notarized): https://github.com/bigbadboy1010/loupe/releases/tag/v0.2.0
+- [x] **v0.1.0 als 'legacy tech-preview' markiert** (zeigt auf v0.2.0)
 - [x] **App-Store-Connect-Record angelegt + erstes TestFlight-Archiv hochgeladen**
 - [x] **Notarisierung des LoupeHost DMG ausgeführt** ✅ (Submission 684cc2f6..., Accepted, Stapled, spctl-accepted)
 

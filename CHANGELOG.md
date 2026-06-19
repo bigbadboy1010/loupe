@@ -2,6 +2,57 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## v0.2.1-public-beta-tidyup — Public-Beta-Release-Hygiene (2026-06-19)
+
+Addresses every P0/P1 from the launch-readiness review, except
+P0-2 which is closed by the v0.2.0 release itself.
+
+### Release engineering
+
+- **v0.2.0 is now the Latest GitHub release.**
+  https://github.com/bigbadboy1010/loupe/releases/latest
+  The release is the same Apple-notarised DMG from v0.2.0-host-notarised,
+  repackaged with a new tag so the download URL no longer carries
+  the legacy v0.1.0 naming.
+- **v0.1.0 is marked as a legacy tech-preview.** Its body now points
+  forward to v0.2.0 instead of claiming to be the trusted installer.
+
+### Public messaging
+
+- **`README.md`** — "Latest stable" now lists v0.2.0 / v3.10 and
+  notes the last 5 CI runs are green. New TL;DR: "No account. No
+  media cloud. Self-hostable signaling. Source-available;
+  commercial use requires a license." DMG link points at v0.2.0
+  and explains the bundle is Developer-ID signed and Apple-notarised.
+  iOS controller is explicitly described as TestFlight-only for now.
+  Quick-start uses `git clone .../loupe.git && cd loupe` so it is
+  case-correct on case-sensitive filesystems.
+
+### Security
+
+- **`docs/ADR-003-pairing.md`** — Adds a "Status" table that maps
+  the 4 sub-decisions to current code paths: 3 of 4 fully
+  implemented, #4 (DTLS-fingerprint signing over DataChannel) is
+  marked partial and lands in v0.3. Adds a "Security-Claim today"
+  bullet list that says exactly what the system defends against
+  in 2026-06 and what it does not.
+- **`loupe-signaling/src/server.ts`** — `/healthz` no longer
+  exposes rate-limit-bucket counts, active session count, or
+  pairing-code count. Returns only `{status, uptimeSeconds,
+  version}` so a public endpoint does not leak internal
+  telemetry. Live-verified at
+  `https://loupe.ddns.net/healthz`.
+
+### Operational policy
+
+- **`docs/TURN-COST-LIMIT.md`** (new, ~150 lines) — Records the
+  operational concept for the public coturn instance. Three
+  layers of defence: pairing-code rate limit (Fastify), WebSocket
+  rate limit (Fastify), coturn `max-bps=8M` cap. Cost envelope
+  per tier (Free / Personal / Pro / Self-host), abuse response
+  procedure, and explicit "what this does not solve" (single
+  region, weak abuse attribution).
+
 ## v0.2.0-host-notarised — Apple-notarised installer published (2026-06-19)
 
 The v0.1.0 host DMG in this GitHub Release has been replaced with an
