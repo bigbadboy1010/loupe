@@ -5,16 +5,331 @@ import LoupeControllerKit
 
 @main
 struct LoupeControllerMacApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @StateObject private var appState = AppState()
+
     var body: some Scene {
-        WindowGroup {
-            MacPairingEntryView()
+        // 1. Menu-bar extra — always visible while the app is running. This is the
+        //    primary surface for connecting / disconnecting without needing to
+        //    bring a window forward.
+        MenuBarExtra {
+            MenuBarMenu(appState: appState)
+        } label: {
+            MenuBarStatusIcon(state: appState.controllerState)
+        }
+        .menuBarExtraStyle(.window)
+
+        // 2. Main window — opened on demand from the menu-bar item or on first
+        //    launch via AppDelegate.
+        WindowGroup("Loupe Controller", id: "main") {
+            MainWindow(appState: appState)
                 .frame(minWidth: 980, minHeight: 680)
         }
         .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified)
+        .defaultSize(width: 1100, height: 720)
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
+
+        // 3. Settings window — opens a separate scene so it can stay open while
+        //    the user is pairing.
+        Settings {
+            MacSettingsView(appState: appState)
+                .frame(minWidth: 520, minHeight: 360)
+        }
     }
+}
+
+// MARK: - App Delegate
+
+/// Keeps the menu-bar icon alive even when the main window is closed.
+/// Without this, macOS would quit the process as soon as the last window
+/// closes, which would also kill the menu-bar item.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Ensure the app doesn't terminate when the last window closes.
+        // (Menu-bar apps must opt out of this termination policy.)
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        // Returning false keeps the process (and menu-bar item) alive after
+        // the user closes the main window. They can quit from the menu-bar
+        // menu or with Cmd-Q.
+        return false
+    }
+}
+
+// MARK: - App State
+
+/// Shared mutable state that both the menu-bar menu and the main window
+/// observe. In a larger app this would be injected as an @Environment;
+/// here we keep it simple with a singleton.
+final class AppState: ObservableObject {
+    @Published var controllerState: ControllerState = .idle
+    @Published var lastHostLabel: String?
+    @Published var lastError: String?
+
+    private let recentHostsKey = "loupe.mac.recentHosts.v1"
+
+    struct RecentHost: Codable, Identifiable, Equatable {
+        let id: UUID
+        let label: String
+        let token: String
+        let connectedAt: Date
+
+        init(label: String, token: String, connectedAt: Date = Date()) {
+            self.id = UUID()
+            self.label = label
+            self.token = token
+            self.connectedAt = connectedAt
+        }
+    }
+
+    @Published var recentHosts: [RecentHost] = []
+
+    init() {
+        loadRecentHosts()
+    }
+
+    func recordSuccessfulConnection(label: String, token: String) {
+        // Move-to-front: drop any existing entry with same token, then prepend.
+        recentHosts.removeAll { $0.token == token }
+        recentHosts.insert(RecentHost(label: label, token: token), at: 0)
+        if recentHosts.count > 5 {
+            recentHosts.removeLast(recentHosts.count - 5)
+        }
+        lastHostLabel = label
+        saveRecentHosts()
+    }
+
+    func clearRecentHosts() {
+        recentHosts.removeAll()
+        saveRecentHosts()
+    }
+
+    private func loadRecentHosts() {
+        guard
+            let data = UserDefaults.standard.data(forKey: recentHostsKey),
+            let decoded = try? JSONDecoder().decode([RecentHost].self, from: data)
+        else { return }
+        recentHosts = decoded
+    }
+
+    private func saveRecentHosts() {
+        guard let data = try? JSONEncoder().encode(recentHosts) else { return }
+        UserDefaults.standard.set(data, forKey: recentHostsKey)
+    }
+}
+
+enum ControllerState: Equatable {
+    case idle
+    case connecting(label: String?)
+    case connected(label: String)
+    case failed(message: String)
+
+    var shortLabel: String {
+        switch self {
+        case .idle: return "Idle"
+        case .connecting(let label): return label.map { "Connecting to \($0)…" } ?? "Connecting…"
+        case .connected(let label): return "Connected: \(label)"
+        case .failed(let message): return message
+        }
+    }
+}
+
+// MARK: - Menu Bar
+
+private struct MenuBarStatusIcon: View {
+    let state: ControllerState
+
+    var body: some View {
+        // SF Symbol swap based on state. Apple recommends fixed-size SF Symbols
+        // for menu-bar items (around 16×16 logical points).
+        Image(systemName: symbolName)
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(tint)
+            .imageScale(.medium)
+            .accessibilityLabel(state.shortLabel)
+    }
+
+    private var symbolName: String {
+        switch state {
+        case .idle:        return "circle.dashed"
+        case .connecting:  return "arrow.triangle.2.circlepath"
+        case .connected:   return "circle.fill"
+        case .failed:      return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch state {
+        case .idle:        return .secondary
+        case .connecting:  return .orange
+        case .connected:   return .green
+        case .failed:      return .red
+        }
+    }
+}
+
+private struct MenuBarMenu: View {
+    @ObservedObject var appState: AppState
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header / status block
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Loupe Mac Controller")
+                    .font(.headline)
+                Text(appState.controllerState.shortLabel)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if let last = appState.lastError {
+                    Text(last)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .lineLimit(2)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            Divider()
+
+            // Quick actions
+            VStack(alignment: .leading, spacing: 0) {
+                MenuItem(systemImage: "macwindow", title: "Open main window", shortcut: "⌘0") {
+                    openMainWindow()
+                }
+                .disabled(!NSApp.isRunning)
+
+                if case .connected = appState.controllerState {
+                    MenuItem(systemImage: "xmark.circle", title: "Disconnect", shortcut: nil) {
+                        // Handled by MainWindow's controller VM; opening the window
+                        // surfaces the active session so user can confirm.
+                        openMainWindow()
+                    }
+                }
+
+                MenuItem(systemImage: "gearshape", title: "Settings…", shortcut: "⌘,") {
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                }
+
+                MenuItem(systemImage: "power", title: "Quit Loupe", shortcut: "⌘Q") {
+                    NSApp.terminate(nil)
+                }
+            }
+            .padding(.vertical, 6)
+
+            if !appState.recentHosts.isEmpty {
+                Divider()
+                recentHostsSection
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(width: 320)
+    }
+
+    private var recentHostsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Recent Hosts")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Clear") {
+                    appState.clearRecentHosts()
+                }
+                .buttonStyle(.plain)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+
+            ForEach(appState.recentHosts) { host in
+                Button {
+                    openMainWindow()
+                    NotificationCenter.default.post(
+                        name: .loupeLoadRecentToken,
+                        object: nil,
+                        userInfo: ["token": host.token, "label": host.label]
+                    )
+                } label: {
+                    HStack {
+                        Image(systemName: "laptopcomputer.and.iphone")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(host.label)
+                                .font(.subheadline)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Text(host.connectedAt, style: .relative)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(Color.primary.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .padding(.horizontal, 8)
+            }
+            .padding(.bottom, 10)
+        }
+    }
+
+    private func openMainWindow() {
+        // SwiftUI's @Environment(\.openWindow) is the modern way to surface a
+        // named window scene. This works on macOS 13+.
+        openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+private struct MenuItem: View {
+    let systemImage: String
+    let title: String
+    let shortcut: String?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .frame(width: 18)
+                    .foregroundStyle(.secondary)
+                Text(title)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let shortcut {
+                    Text(shortcut)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(Color.clear)
+    }
+}
+
+extension Notification.Name {
+    static let loupeLoadRecentToken = Notification.Name("loupe.mac.loadRecentToken")
 }
 
 private enum MacDefaults {
@@ -31,6 +346,99 @@ private enum MacDefaults {
             .replacingOccurrences(of: " ", with: "-")
         defaults.set(created, forKey: controllerPeerIdKey)
         return created
+    }
+}
+
+/// Wrapper around the original `MacPairingEntryView` that hooks it up to
+/// the shared `AppState`. Keeping the original view unchanged means any
+/// pairing logic stays exactly as it was before the menu-bar refactor.
+private struct MainWindow: View {
+    @ObservedObject var appState: AppState
+
+    var body: some View {
+        MacPairingEntryView()
+            .environmentObject(appState)
+    }
+}
+
+/// Minimal native macOS Settings scene. Mirrors the iOS Settings sheet
+/// layout (Form + grouped sections) so muscle memory transfers.
+private struct MacSettingsView: View {
+    @ObservedObject var appState: AppState
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+    }
+
+    var body: some View {
+        TabView {
+            generalTab
+                .tabItem { Label("General", systemImage: "gearshape") }
+            aboutTab
+                .tabItem { Label("About", systemImage: "info.circle") }
+        }
+        .frame(minWidth: 520, minHeight: 360)
+        .padding(20)
+    }
+
+    private var generalTab: some View {
+        Form {
+            Section("Default Session") {
+                LabeledContent("Session ID", value: MacDefaults.fallbackSessionId)
+                    .textSelection(.enabled)
+                LabeledContent("Controller ID", value: MacDefaults.controllerPeerId())
+                    .textSelection(.enabled)
+            }
+
+            Section("Recent Hosts") {
+                if appState.recentHosts.isEmpty {
+                    Text("No recent hosts yet.")
+                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                } else {
+                    ForEach(appState.recentHosts) { host in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(host.label).font(.body)
+                            Text(host.connectedAt, style: .date)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Button("Clear Recent Hosts", role: .destructive) {
+                        appState.clearRecentHosts()
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var aboutTab: some View {
+        VStack(alignment: .center, spacing: 12) {
+            Spacer()
+            Image(systemName: "circle.grid.3x3.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 64, height: 64)
+                .foregroundStyle(Color.accentColor)
+            Text("Loupe Mac Controller")
+                .font(.title2.weight(.semibold))
+            Text("Version \(appVersion) (\(buildNumber))")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text("Apple-native remote desktop. macOS ↔ iPhone. Sub-50 ms, end-to-end encrypted, account-free.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+                .padding(.top, 8)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
