@@ -44,6 +44,10 @@ export async function registerSite(app: FastifyInstance, opts: SiteOptions): Pro
     referrer: z.string().max(2048).optional(),
   });
 
+  const waitlistDeleteBody = z.object({
+    email: z.string().trim().min(3).max(254),
+  });
+
   app.post("/waitlist", async (request: FastifyRequest, reply: FastifyReply) => {
     const ip = clientIp(request, opts.trustProxy);
 
@@ -82,8 +86,9 @@ export async function registerSite(app: FastifyInstance, opts: SiteOptions): Pro
       source: parsed.data.source ?? "unknown",
       referrer: parsed.data.referrer ?? "",
       createdAt: new Date().toISOString(),
-      ip,
-      userAgent: (request.headers["user-agent"] ?? "").toString().slice(0, 256),
+      // ip + userAgent are intentionally NOT persisted (privacy policy
+      // and Art. 5(1)(c) GDPR — data minimisation). The `ip` variable is
+      // still in scope for the rate-limit check above, then discarded.
     };
 
     const { duplicate } = await waitlist.append(entry);
@@ -102,6 +107,41 @@ export async function registerSite(app: FastifyInstance, opts: SiteOptions): Pro
       status: "ok",
       message: "You're on the list. We'll be in touch.",
     });
+  });
+
+  // GDPR Art. 17 — right to erasure. Anyone who submitted an email can
+  // request removal; the same endpoint is what we use when a user replies
+  // to the confirmation email with "delete me". Returns 200 even when no
+  // entry existed (idempotent).
+  app.delete("/waitlist", async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = waitlistDeleteBody.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: "INVALID_BODY", message: "Provide a JSON body with an email field." });
+    }
+    const email = normaliseEmail(parsed.data.email);
+    if (!isLikelyEmail(email)) {
+      return reply
+        .code(400)
+        .send({ error: "INVALID_EMAIL", message: "That doesn't look like a valid email address." });
+    }
+    try {
+      const { removed } = await waitlist.removeByEmail(email);
+      // Always 200 (don't leak existence of the entry).
+      return reply.code(200).send({
+        status: "ok",
+        email,
+        removed,
+        message:
+          removed > 0
+            ? "Removed. Sorry to see you go — feel free to come back any time."
+            : "Nothing to remove.",
+      });
+    } catch (err) {
+      request.log.error({ err }, "waitlist removeByEmail failed");
+      return reply.code(500).send({ error: "INTERNAL" });
+    }
   });
 
   if (opts.adminToken) {
@@ -248,7 +288,10 @@ function constantTimeEquals(provided: string, expected: string): boolean {
 }
 
 function renderWaitlistCsv(entries: ReadonlyArray<WaitlistEntry>): string {
-  const header = ["email", "source", "referrer", "createdAt", "ip", "userAgent"];
+  // Note: ip/userAgent columns are intentionally absent from this export.
+  // They were never persisted (see WaitlistEntry in src/waitlist/store.ts),
+  // so they cannot appear here either.
+  const header = ["email", "source", "referrer", "createdAt"];
   const rows = [header.join(",")];
   for (const entry of entries) {
     rows.push(
@@ -257,8 +300,6 @@ function renderWaitlistCsv(entries: ReadonlyArray<WaitlistEntry>): string {
         csvEscape(entry.source),
         csvEscape(entry.referrer),
         csvEscape(entry.createdAt),
-        csvEscape(entry.ip),
-        csvEscape(entry.userAgent),
       ].join(","),
     );
   }

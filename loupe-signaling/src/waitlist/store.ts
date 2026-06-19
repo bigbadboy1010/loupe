@@ -6,8 +6,11 @@ export interface WaitlistEntry {
   readonly source: string;
   readonly referrer: string;
   readonly createdAt: string;
-  readonly ip: string;
-  readonly userAgent: string;
+  // Note: we deliberately do NOT store IP address or User-Agent here.
+  // The signaling server logs them temporarily for abuse prevention (rate
+  // limiting), but they are not persisted with the waitlist entry. This keeps
+  // the on-disk data minimal (Art. 5(1)(c) GDPR — data minimisation) and
+  // matches the wording of the public privacy policy.
 }
 
 /**
@@ -112,6 +115,56 @@ export class WaitlistStore {
       if (isMissingFile(err)) return false;
       throw err;
     }
+  }
+
+  /**
+   * Removes any entries whose email matches the normalised form.
+   *
+   * Used by the GDPR Art. 17 right-to-erasure flow: a user replies to
+   * the confirmation email (or hits `DELETE /waitlist` with their address)
+   * and we scrub every line that mentions that email.
+   *
+   * Returns the count of removed entries. Safe to call when the file
+   * does not exist (returns 0). Rewrite is atomic via temp-file + rename.
+   */
+  public async removeByEmail(email: string): Promise<{ removed: number }> {
+    const normalised = normaliseEmail(email);
+    let removed = 0;
+    let text: string;
+    try {
+      text = await fs.readFile(this.filePath, "utf8");
+    } catch (err) {
+      if (isMissingFile(err)) return { removed: 0 };
+      throw err;
+    }
+    if (!text) return { removed: 0 };
+
+    const surviving: string[] = [];
+    for (const raw of text.split("\n")) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      try {
+        const parsed = JSON.parse(trimmed) as Partial<WaitlistEntry>;
+        if (parsed && parsed.email && normaliseEmail(parsed.email) === normalised) {
+          removed += 1;
+          continue; // drop this line
+        }
+      } catch {
+        // Keep lines we cannot parse; we never want to silently destroy data.
+      }
+      surviving.push(raw);
+    }
+    if (removed === 0) return { removed: 0 };
+
+    // Atomic rewrite: write to a sibling temp file, then rename.
+    const tmp = `${this.filePath}.tmp`;
+    const payload = surviving.length === 0 ? "" : surviving.join("\n") + "\n";
+    await fs.writeFile(tmp, payload, { encoding: "utf8", mode: 0o600 });
+    await fs.rename(tmp, this.filePath);
+    // Preserve mode 0600 on the final file (rename keeps source mode, but
+    // be explicit anyway).
+    await fs.chmod(this.filePath, 0o600);
+    return { removed };
   }
 }
 

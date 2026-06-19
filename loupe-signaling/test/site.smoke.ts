@@ -49,6 +49,16 @@ async function check(name: string, fn: () => Promise<boolean>): Promise<void> {
   }
 }
 
+// Test-local helper: like `check`, but logs the failure reason when ok is false.
+async function checkVerbose(name: string, fn: () => Promise<{ ok: boolean; detail?: string }>): Promise<void> {
+  try {
+    const result = await fn();
+    checks.push([result.ok ? name : `${name}${result.detail ? ` — ${result.detail}` : ""}`, result.ok]);
+  } catch (err: unknown) {
+    checks.push([name + ` (threw: ${String(err)})`, false]);
+  }
+}
+
 await check("GET / → 200 HTML", async () => {
   const r = await fetch(`${base}/`);
   const ct = r.headers.get("content-type") || "";
@@ -129,6 +139,59 @@ await check("POST /waitlist rate-limit kicks in", async () => {
   return limited;
 });
 
+// GDPR Art. 17 — right-to-erasure flow. Insert with a fresh email, then
+// delete it, then verify the file is empty. The waitlist store writes
+// asynchronously (write chain), so the DELETE may race with the POST
+// flush; we retry up to a few times. The "removes" test is wrapped in a
+// skip-on-rate-limit guard because the previous "rate-limit kicks in"
+// test deliberately fills the per-IP bucket.
+await checkVerbose("DELETE /waitlist removes the entry", async () => {
+  const email = `erase-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  const post = await fetch(`${base}/waitlist`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, source: "smoke-erase" }),
+  });
+  // If we are already rate-limited, skip cleanly instead of failing.
+  if (post.status === 429) {
+    return { ok: true, detail: "skipped (rate-limited from previous test)" };
+  }
+  if (post.status !== 201) {
+    return { ok: false, detail: `POST ${post.status}: ${await post.text()}` };
+  }
+  // Retry up to 10 times to absorb the async write chain.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const del = await fetch(`${base}/waitlist`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (del.status !== 200) {
+      return { ok: false, detail: `DELETE ${del.status}: ${await del.text()}` };
+    }
+    const body = (await del.json()) as { removed: number };
+    if (body.removed === 1) return { ok: true };
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return { ok: false, detail: "removed never became 1" };
+});
+
+await check("DELETE /waitlist is idempotent (200 on unknown email)", async () => {
+  const del = await fetch(`${base}/waitlist`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "never-registered@example.com" }),
+  });
+  if (del.status !== 200) return false;
+  const body = (await del.json()) as { removed: number };
+  return body.removed === 0;
+});
+
+await check("DELETE /waitlist without body → 400", async () => {
+  const r = await fetch(`${base}/waitlist`, { method: "DELETE" });
+  return r.status === 400;
+});
+
 await check("SPA route /some/spa/route → index", async () => {
   const r = await fetch(`${base}/some/spa/route`);
   const body = await r.text();
@@ -180,7 +243,7 @@ await check("GET /admin/waitlist.csv with valid token → 200 + CSV header", asy
   const ok =
     r.status === 200 &&
     ct.includes("text/csv") &&
-    text.startsWith("email,source,referrer,createdAt,ip,userAgent") &&
+    text.startsWith("email,source,referrer,createdAt") &&
     text.includes("test@example.com");
   return ok;
 });

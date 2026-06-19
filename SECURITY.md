@@ -19,7 +19,10 @@ Loupe is end-to-end encrypted, but software has bugs. We take reports seriously.
 - Steps to reproduce, ideally with a minimal PoC.
 - The macOS / iOS version, build version, and any relevant configuration.
 
-You can encrypt sensitive reports with our PGP key (fingerprint `LOUPE-PGP-FP-2026` — full key on request). For most issues, plaintext email is fine.
+You can encrypt sensitive reports with our PGP key if you prefer that to
+plaintext email. **PGP key is not yet published** — please email us
+first and we'll send the public key out-of-band. For most issues,
+plaintext email is fine.
 
 ## Our response timeline
 
@@ -45,8 +48,16 @@ Loupe is an early-stage solo project; we don't run a paid bug bounty program. We
 ## Out of scope
 
 - Denial-of-service against the public signaling endpoint (rate-limiting and connection caps exist; report if you find a way past them, but it's not a vulnerability).
-- The TOFU pairing model itself. We document it in `docs/ADR-003-pairing.md`. We are not adding certificate pinning for the relay host.
 - TURN-server bandwidth abuse. We rate-limit on a per-IP basis. If you can spend more than €5 of TURN bandwidth, we want to hear about it for capacity planning, but it's not a vulnerability.
+
+## In scope (please report)
+
+- Anything that lets an attacker **bypass the TOFU pairing model** (e.g. MITM without a fingerprint mismatch warning, replay attacks against the pairing code, ability to enumerate valid pairing codes, race conditions in the trust-on-first-use flow).
+- Anything that lets an attacker **exfiltrate media or input** between paired devices (DTLS-SRTP bypass, ICE-candidate tampering, SDP manipulation).
+- Anything that lets an attacker **inject input on the host** (Mac) without an active user-present pairing on the controller.
+- Anything that leaks data the privacy policy promises we don't store (e.g. a path that persists IP/User-Agent despite the waitlist code claiming not to).
+
+Pairing and trust are **core** to Loupe. If you find a weakness, we want to know — even if it falls outside the strict definition of a vulnerability.
 
 ## What we promise
 
