@@ -1,6 +1,10 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
+#if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
+#endif
 import LoupeControllerKit
 
 @main
@@ -23,7 +27,11 @@ private enum AppDefaults {
         if let existing = defaults.string(forKey: controllerPeerIdKey), !existing.isEmpty {
             return existing
         }
+        #if canImport(UIKit)
         let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        #else
+        let deviceId = UUID().uuidString
+        #endif
         let created = "\(AppPlatform.controllerPeerPrefix)-\(deviceId)"
         defaults.set(created, forKey: controllerPeerIdKey)
         return created
@@ -45,20 +53,28 @@ private enum AppPlatform {
 
     static var deviceLabel: String {
         if isMacRuntime { return "Mac" }
+        #if canImport(UIKit)
         switch UIDevice.current.userInterfaceIdiom {
         case .pad: return "iPad"
         case .phone: return "iPhone"
         default: return "iOS"
         }
+        #else
+        return "macOS"
+        #endif
     }
 
     static var controllerPeerPrefix: String {
         if isMacRuntime { return "mac-controller" }
+        #if canImport(UIKit)
         switch UIDevice.current.userInterfaceIdiom {
         case .pad: return "ipad-controller"
         case .phone: return "ios-controller"
         default: return "ios-controller"
         }
+        #else
+        return "mac-controller"
+        #endif
     }
 
     static var supportsCameraPairing: Bool {
@@ -596,12 +612,16 @@ private struct PairingEntryView: View {
     }
 
     private func pasteTokenFromClipboard() {
+        #if canImport(UIKit)
         guard let value = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
             errorMessage = "Zwischenablage enthält keinen Pairing Token."
             return
         }
         pairingToken = value
         errorMessage = nil
+        #else
+        errorMessage = "Zwischenablage wird auf dieser Plattform nicht unterstützt."
+        #endif
     }
 
     private func loadTokenFile(_ result: Result<[URL], Error>) {
@@ -936,9 +956,11 @@ private struct KeyboardPanel: View {
 
                 Section("Clipboard & Shortcuts") {
                     Button {
+                        #if canImport(UIKit)
                         if let clipboard = UIPasteboard.general.string, !clipboard.isEmpty {
                             model.sendTextInput(clipboard)
                         }
+                        #endif
                     } label: {
                         Label("Zwischenablage als Text senden", systemImage: "doc.on.clipboard")
                     }
@@ -1100,7 +1122,9 @@ private struct LiveDiagnosticsView: View {
             report: report,
             copied: copied,
             onCopy: {
+                #if canImport(UIKit)
                 UIPasteboard.general.string = report
+                #endif
                 copied = true
             },
             onClose: { dismiss() }
@@ -1119,7 +1143,9 @@ private struct StaticDiagnosticsView: View {
             report: report,
             copied: copied,
             onCopy: {
+                #if canImport(UIKit)
                 UIPasteboard.general.string = report
+                #endif
                 copied = true
             },
             onClose: { dismiss() }
