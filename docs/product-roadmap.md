@@ -83,8 +83,10 @@ Status (2026-06-19):
 **Mac Host (`LoupeHost`)**
 - [x] `.app`-Bundle via `scripts/build-host-app.sh` (25 MB, WebRTC.framework gebundled)
 - [x] DMG-Installer via `scripts/build-host-dmg.sh` (12 MB compressed)
-- [x] Ad-hoc-codesigned, `@executable_path/../Frameworks` rpath gesetzt
-- [x] GitHub Release v0.1.0 mit DMG + SHA256 veröffentlicht
+- [x] Developer-ID-Signatur mit Hardened Runtime + Timestamp (`scripts/sign-host-app.sh`)
+- [x] Notarisierungs-Pipeline (`scripts/notarize-host-dmg.sh` + `scripts/release-host.sh`)
+- [x] GitHub Actions Workflow `release-host.yml` für automatischen Release
+- [ ] **Notarisierung tatsächlich ausführen** (braucht Credentials, einmalige Owner-Aktion)
 
 **Distribution**
 - [x] `docs/TESTFLIGHT.md` mit kompletter archive → upload → compliance Anleitung
@@ -92,7 +94,7 @@ Status (2026-06-19):
 - [x] `docs/ADR-004-mac-camera-pairing.md`
 - [x] **GitHub Release v0.1.0 veröffentlicht**: https://github.com/bigbadboy1010/loupe/releases/tag/v0.1.0
 - [x] **App-Store-Connect-Record angelegt + erstes TestFlight-Archiv hochgeladen**
-- [ ] **Developer-ID-Signatur + Apple-Notarization für LoupeHost** (vor Public-Beta)
+- [ ] **Notarisierung des LoupeHost DMG ausführen** (einmaliger Owner-Schritt, Credentials nötig)
 
 ## Phase 4 — Security und Release
 

@@ -40,8 +40,12 @@ What's included in the bundle:
   version `0.1.0` (build `1`), and the LSMinimumSystemVersion pinned
   to macOS 13
 - `LC_RPATH` patched to `@executable_path/../Frameworks` so dyld finds
-  the bundled WebRTC at launch time
-- Ad-hoc codesign so the binary runs locally without a Developer-ID
+  the bundled WebRTC.framework at launch time
+- **Developer ID Application signature** with hardened runtime and an
+  Apple timestamp server token, signed by
+  `Developer ID Application: Francois Alexandre Marie De Lattre (355NB9T8RJ)`
+- **Apple notarisation ticket stapled** to the DMG, so Gatekeeper on a
+  fresh Mac verifies the binary without round-tripping to Apple.
 
 ## Known limitations
 

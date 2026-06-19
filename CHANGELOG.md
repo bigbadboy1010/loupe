@@ -2,6 +2,67 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## v0.1.2-host-codesign — Developer-ID signing + notarisation pipeline (2026-06-19)
+
+The host installer is now ready for Apple Developer-ID signing and
+notarisation. The actual notarisation still needs the project owner's
+API key or Apple-ID credentials; the scripts are wired up and a CI
+workflow is in place so the next `v*` tag can be notarised
+end-to-end.
+
+### Scripts
+
+- **`scripts/sign-host-app.sh`** — Replace the ad-hoc signature from
+  `build-host-app.sh` with a Developer-ID Application signature. Looks
+  up the cert from the keychain (`security find-identity`), re-signs
+  every nested framework with hardened runtime + timestamp, then
+  re-signs the app bundle and verifies it. Default cert is
+  `Developer ID Application: Francois Alexandre Marie De Lattre (355NB9T8RJ)`,
+  overridable via `SIGNING_IDENTITY` env var.
+- **`scripts/notarize-host-dmg.sh`** — Submit the DMG to
+  `xcrun notarytool submit --wait`, fetch the full notarisation log
+  even on success, then `xcrun stapler staple` + `validate` so
+  Gatekeeper can verify the ticket offline. Supports both auth modes:
+  - `api-key` (recommended for CI): `APPLE_API_KEY_ID`,
+    `APPLE_API_ISSUER_ID`, `APPLE_API_KEY_PATH`.
+  - `apple-id` (one-off builds): `APPLE_ID`, `APPLE_APP_PASSWORD`.
+- **`scripts/release-host.sh`** — Convenience wrapper that runs
+  build + sign + DMG + notarise in one shot.
+
+### CI
+
+- **`.github/workflows/release-host.yml`** — New workflow that
+  triggers on `v*` tag pushes. Imports the App Store Connect API key
+  and the Developer-ID Application cert (as `.p12`) from GitHub
+  Actions secrets, runs `scripts/release-host.sh`, and uploads the
+  notarised DMG + SHA256 sidecar to the GitHub Release.
+
+  Required secrets (set via Settings → Secrets and variables → Actions):
+  - `APPLE_TEAM_ID`
+  - `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_API_KEY`
+    (base64-encoded `.p8` file)
+  - `APPLE_DEVELOPER_ID_CERT_P12` (base64-encoded `.p12`),
+    `APPLE_DEVELOPER_ID_CERT_PASSWORD`
+
+### Documentation
+
+- **`docs/HOST-INSTALL.md`** — Updated for the notarised installer:
+  Gatekeeper no longer shows "downloaded from the internet" warning;
+  the "LoupeHost is damaged" troubleshooting now also suggests
+  `codesign -dvv` + `xcrun stapler validate`. New subsection on
+  building from source and redistributing with your own Developer-ID.
+
+### Verified locally
+
+- `./scripts/sign-host-app.sh` produces a properly-signed bundle:
+  `Authority=Developer ID Application: Francois Alexandre Marie
+   De Lattre (355NB9T8RJ)` with hardened runtime and Apple timestamp.
+- The actual notarisation step requires credentials that are not in
+  the repository; once the owner injects the API key (or Apple-ID +
+  app-specific password) into the CI secrets or runs
+  `./scripts/release-host.sh` locally, the release pipeline runs
+  end-to-end.
+
 ## v0.1.1-host-installer-tidyup — Impressum hardening + licence polish (2026-06-19)
 
 A small follow-up to the v0.1.0 host installer that addresses reviewer

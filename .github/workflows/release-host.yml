@@ -1,0 +1,121 @@
+name: release-host
+
+# Build, sign, notarise, and upload a LoupeHost DMG when a tag matching
+# 'v<semver>' is pushed (e.g. v0.2.0).
+#
+# Required GitHub secrets:
+#   APPLE_TEAM_ID            Apple Developer Team ID
+#   APPLE_API_KEY_ID         App Store Connect API key id
+#   APPLE_API_ISSUER_ID      App Store Connect issuer id (UUID)
+#   APPLE_API_KEY            The AuthKey_<key>.p8 file contents
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.2.0)"
+        required: true
+        default: "0.2.0"
+
+concurrency:
+  group: release-host-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-notarise:
+    name: Build + Sign + Notarise + Upload
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    env:
+      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+
+      # ------------------------------------------------------------------
+      # Import the App Store Connect API key into the runner's keychain
+      # so xcrun notarytool can authenticate.
+      # ------------------------------------------------------------------
+      - name: Install App Store Connect API key
+        env:
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          API_KEY_B64: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.private_keys
+          API_KEY_PATH=~/.private_keys/AuthKey_${API_KEY_ID}.p8
+          echo "${API_KEY_B64}" | base64 --decode > "${API_KEY_PATH}"
+          chmod 600 "${API_KEY_PATH}"
+          echo "Installed API key: ${API_KEY_PATH}"
+
+      # ------------------------------------------------------------------
+      # Add the Developer ID Application certificate to the keychain.
+      # ------------------------------------------------------------------
+      - name: Import Developer ID certificate
+        env:
+          CERT_P12_B64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12 }}
+          CERT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CERT_P12_B64}" ]]; then
+            echo "warning: APPLE_DEVELOPER_ID_CERT_P12 not set, falling back to ad-hoc"
+            echo "         the release will not be notarised"
+            exit 0
+          fi
+          CERT_PATH=/tmp/loupe-developer-id.p12
+          echo "${CERT_P12_B64}" | base64 --decode > "${CERT_PATH}"
+          security create-keychain -p "" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import "${CERT_PATH}" \
+              -k build.keychain \
+              -P "${CERT_P12_PASSWORD}" \
+              -T /usr/bin/codesign \
+              -T /usr/bin/security
+          security list-keychains -d user -s build.keychain $(security list-keychains -d user | tr -d '"')
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          echo "Imported Developer ID certificate"
+
+      # ------------------------------------------------------------------
+      # Run the release pipeline.
+      # ------------------------------------------------------------------
+      - name: Build + sign + notarise
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_AUTH_MODE: api-key
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_API_KEY_PATH: ~/.private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
+          SIGNING_IDENTITY: "Developer ID Application: Francois Alexandre Marie De Lattre (${{ secrets.APPLE_TEAM_ID }})"
+        run: |
+          set -euo pipefail
+          ./scripts/release-host.sh
+
+      # ------------------------------------------------------------------
+      # Upload artefacts to the GitHub Release for this tag.
+      # ------------------------------------------------------------------
+      - name: Upload DMG + SHA256 to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Loupe Host ${{ env.VERSION }} — notarised installer"
+          generate_release_notes: true
+          files: |
+            build/dist/LoupeHost-${{ env.VERSION }}.dmg
+            build/dist/LoupeHost-${{ env.VERSION }}.dmg.sha256
+          fail_on_unmatched_files: true
+
+      - name: Summary
+        run: |
+          echo "Release ${{ github.ref_name }} published."
+          echo "Download: https://github.com/bigbadboy1010/loupe/releases/tag/${{ github.ref_name }}"

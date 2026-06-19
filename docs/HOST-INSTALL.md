@@ -40,11 +40,9 @@ usually means a truncated download.
    a few seconds.
 3. **Eject the DMG** (right-click → Eject, or drag the volume to the
    Trash).
-4. **Open `LoupeHost.app` from Applications.** The first launch is
-   unsigned + ad-hoc signed, so macOS will warn:
-   > "LoupeHost" is an app downloaded from the Internet. Are you sure
-   > you want to open it?
-   Click **Open** to confirm.
+3. **Open `LoupeHost.app` from Applications.** The DMG ships a
+   notarised bundle, so Gatekeeper verifies it offline. You should
+   not see the "downloaded from the internet" warning.
 
 ### First launch — grant the two required permissions
 
@@ -110,6 +108,50 @@ cp -R build/host-app/LoupeHost.app /Applications/
 open /Applications/LoupeHost.app
 ```
 
+### Build-from-source with your own Developer-ID (optional, for redistribution)
+
+The default `build-host-app.sh` signs the binary ad-hoc. If you plan to
+redistribute your own build, sign and notarise it yourself:
+
+```bash
+# 1. Replace ad-hoc signature with your Developer-ID Application cert.
+./scripts/sign-host-app.sh
+
+# 2. Rebuild the DMG so it contains the Developer-ID-signed .app.
+./scripts/build-host-dmg.sh
+
+# 3. Submit the DMG to Apple's notary service. You need one of:
+#   (a) App Store Connect API key (recommended for CI), or
+#   (b) Apple-ID + app-specific password (easier for one-off builds).
+APPLE_TEAM_ID=355NB9T8RJ \
+APPLE_AUTH_MODE=*** \
+APPLE_API_KEY_ID=... \
+APPLE_API_ISSUER_ID=... \
+APPLE_API_KEY_PATH=~/.private_keys/AuthKey_....p8 \
+./scripts/notarize-host-dmg.sh
+```
+
+Or run the entire pipeline in one shot:
+
+```bash
+./scripts/release-host.sh
+```
+
+The notarised + stapled DMG lives at
+`build/dist/LoupeHost-<version>.dmg`. Upload it to GitHub Releases via
+
+```bash
+gh release create v0.2.0 \
+    build/dist/LoupeHost-0.2.0.dmg \
+    build/dist/LoupeHost-0.2.0.dmg.sha256 \
+    --title "Loupe Host v0.2.0 — notarised installer" \
+    --notes-file RELEASE-NOTES-v0.2.0.md
+```
+
+For automated CI on every `v*` tag push, see
+`.github/workflows/release-host.yml`. It reads the same env vars from
+GitHub Actions secrets.
+
 ### What the build script does
 
 `scripts/build-host-app.sh`:
@@ -123,25 +165,49 @@ open /Applications/LoupeHost.app
    dyld finds the bundled WebRTC at launch time
 5. Ad-hoc codesigns (`codesign --force --deep --sign -`)
 
+`scripts/sign-host-app.sh`:
+
+1. Locates the Developer-ID Application certificate in your keychain
+2. Re-signs every embedded framework with `--options=runtime
+   --timestamp`
+3. Re-signs the app bundle with hardened runtime + timestamp
+4. Verifies with `codesign --verify --deep --strict`
+
 `scripts/build-host-dmg.sh`:
 
 1. Stages the `.app` with a `README.txt` + an `/Applications` symlink
 2. `hdiutil create ... -format UDZO` for a compressed read-only DMG
 3. Writes `*.sha256` next to the DMG
 
+`scripts/notarize-host-dmg.sh`:
+
+1. Picks the auth mode (`api-key` or `apple-id`) from env vars
+2. `xcrun notarytool submit ... --wait` — uploads, waits, fetches the
+   full notarisation log
+3. `xcrun stapler staple ...` — bakes the ticket onto the DMG
+4. `xcrun stapler validate ...` — verifies the staple
+
 ## 3. Troubleshooting
 
 ### "LoupeHost is damaged and can't be opened"
 
-You have an old Gatekeeper quarantine cache or the download was
-truncated. Run:
+The DMG is supposed to be Apple-notarised, so this message is unusual.
+Run:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/LoupeHost.app
 open /Applications/LoupeHost.app
 ```
 
-If that does not help, re-download and verify the SHA256.
+If that does not help, verify the signature locally:
+
+```bash
+codesign -dvv /Applications/LoupeHost.app
+xcrun stapler validate /Applications/LoupeHost.app
+```
+
+If the signature is missing or the staple is invalid, re-download the
+DMG and confirm the SHA256.
 
 ### "Requesting Accessibility permission…" but the dialog never appears
 
