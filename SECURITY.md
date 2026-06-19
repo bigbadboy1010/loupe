@@ -20,9 +20,23 @@ Loupe is end-to-end encrypted, but software has bugs. We take reports seriously.
 - The macOS / iOS version, build version, and any relevant configuration.
 
 You can encrypt sensitive reports with our PGP key if you prefer that to
-plaintext email. **PGP key is not yet published** — please email us
-first and we'll send the public key out-of-band. For most issues,
-plaintext email is fine.
+plaintext email. The public key is published at
+[`keys/loupe-security-pubkey.asc`](https://github.com/bigbadboy1010/loupe/blob/main/keys/loupe-security-pubkey.asc)
+in this repository.
+
+- **Fingerprint (primary signing key, ed25519):**
+  `9ED7 FC3E E729 DE8E A059 0E61 6294 F75D C9E0 0141`
+- **Fingerprint (encryption subkey, cv25519):**
+  `A7BC 96B7 9D1B CC4D 3275 1235 7043 0C9E 2BB3 47DB`
+- **UID:** Francois Alexandre De Lattre `<fdelattre1010@gmail.com>`
+- **Created:** 2026-06-19. **No expiry** (long-lived key; rotated on compromise).
+- **Revocation certificate:** stored offline alongside the private key.
+  If you ever see a signed message from us claiming a key rotation, verify
+  the new fingerprint against this file before trusting anything it says.
+
+For most issues, plaintext email to `security@loupe.ddns.net` is fine —
+PGP is offered for the cases where reporters want stronger guarantees
+about recipient identity and confidentiality.
 
 ## Our response timeline
 
