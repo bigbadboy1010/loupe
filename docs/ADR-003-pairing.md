@@ -43,6 +43,29 @@ Beim ersten erfolgreichen Pairing pinnt jede Seite den Public-Key der Gegenstell
 
 Nach dem ICE/DTLS-Aufbau signiert jede Seite das **DTLS-Fingerprint-Tupel** (lokale+remote SDP-Fingerprints) mit ihrem privaten Schlüssel und sendet die Signatur über den Input-DataChannel. Die Gegenseite verifiziert mit dem gepinnten/gescannten Public-Key. Damit ist der WebRTC-Kanal an die verifizierte Geräte-Identität gebunden — ein MITM, der eigene DTLS-Zertifikate einschleust, scheitert an der Signaturprüfung.
 
+## Status
+
+**Aktueller Implementierungsstand (2026-06-19):**
+
+| Decision | Implemented | Verifikation |
+|----------|-------------|--------------|
+| 1. Ed25519/Curve25519 device identity | ✅ | `loupe-controller-ios/Sources/LoupeControllerKit/Pairing/DeviceIdentity.swift`, `loupe-host-macos/Sources/LoupeHostKit/Pairing/DeviceIdentity.swift` |
+| 2. QR-Code as primary, 6-digit shortcode as fallback | ✅ | `PairingPayload.decode(fromToken:)` + `PairingEntryView` (iOS) / `HostSession.start()` (macOS) |
+| 3. TOFU + Pinning + hard abort on key mismatch | ✅ | `TrustStore` + `TrustStore.assertKnownOrThrow(_:)` |
+| 4. DTLS-Fingerprint-Tupel signiert über DataChannel | ⚠️ Partial | Key exchange helpers existieren; integration into the WebRTC `RTCDataChannel` flow lands in v0.3 (siehe `docs/CHANGELOG.md` v0.3-plan). Bis dahin: der QR/shortcode-Pfad plus TOFU+Pinning deckt den häufigsten MITM-Vektor (Signaling-Server-Kompromiss) bereits ab, aber eine **reine Kanal-MITM ohne Server-Kompromiss** wäre noch nicht erkennbar. |
+
+**Security-Claim, den das System heute erfüllen kann (Stand 2026-06-19):**
+
+- ✅ **Verifizierter Pairing-Endpunkt.** Ein kompromittierter Signaling-Server kann eine
+  Pairing-Session **nicht** stillschweigend an ein zweites Gerät umleiten, weil
+  der gescannte Public-Key als TOFU-Pin geprüft wird.
+- ✅ **Host-Identität wechselt sichtbar.** Wechselt der präsentierte Host-Key von
+  dem was im QR stand → harter Abbruch mit Warnung.
+- ⚠️ **Reine DTLS-MITM-Erkennung** (Entscheidung 4) ist **noch nicht** scharf
+  implementiert. Der QR-Pin + TOFU deckt den Real-World-Vektor (Signaling
+  compromised) ab, aber eine MITM-Stelle, die DTLS-Zertifikate in Echtzeit
+  umschreibt, würde derzeit nicht auffallen. **Eskalation im Plan, v0.3.**
+
 ## Konsequenzen
 
 **Positiv**

@@ -8,23 +8,24 @@ Loupe is private remote desktop for people who live in the Apple ecosystem. It p
 
 | Build status | Latest stable | Public endpoint |
 | ------------ | ------------- | --------------- |
-| CI on `main` | v3.9.0 (landing layer) over v3.8.2 / v3.6-stable protocol | `https://loupe.ddns.net` |
+| CI on `main` (last 5 runs all green) | v0.2.0 (host) / v3.10 (controller) | `https://loupe.ddns.net` |
+
+**TL;DR:** No account. No media cloud. Self-hostable signaling. Source-available; commercial use requires a license.
 
 ## What you can do today
 
 - **Pair your Mac and iPhone** with a QR code, control the Mac from your phone with touch, trackpad, scroll, and keyboard.
 - **Pair two Macs** and use one to remote into the other.
 - **Self-host** the signaling + TURN relay on a $5/month VPS. Source and a step-by-step guide are in the repo.
-- **Skip the account**. There's no signup. There's no iCloud. There's no telemetry.
+- **Skip the account**. There's no signup. There's no iCloud. There's no telemetry. There's no media going through our servers.
 
 ## Quick start (development)
 
 ```bash
-git clone https://github.com/bigbadboy1010/loupe
-cd Loupe
+git clone https://github.com/bigbadboy1010/loupe.git
+cd loupe         # note: the repo directory is lower-case
 chmod +x scripts/*.sh
 ./scripts/loupe-doctor.sh       # Sanity check
-./scripts/run-xcode-builds.sh   # Build Host + Controller
 ./scripts/open-xcode.sh         # Open in Xcode
 ```
 
@@ -41,14 +42,19 @@ The full device walkthrough is in [`docs/end-to-end-test.md`](docs/end-to-end-te
 If you just want to control a Mac from your iPhone without building
 anything, download the latest DMG:
 
-> 👉 **[LoupeHost-0.1.0.dmg (latest release)](https://github.com/bigbadboy1010/loupe/releases/latest)**
+> 👉 **[Download LoupeHost-0.2.0.dmg (latest, Developer-ID signed, Apple-notarized)](https://github.com/bigbadboy1010/loupe/releases/latest)**
 
 Drag `LoupeHost.app` from the DMG into `/Applications`, open it, grant
 **Screen Recording** and **Accessibility** in System Settings, and you
-are ready to scan a QR code from the iPhone app. Full step-by-step
-instructions are in [`docs/HOST-INSTALL.md`](docs/HOST-INSTALL.md), and
-the troubleshooting section covers the usual Gatekeeper + permissions
-hiccups.
+are ready to scan a QR code from the iPhone app. Gatekeeper accepts the
+bundle without further prompts because the DMG ships an Apple-notarised
+ticket. Full step-by-step instructions are in
+[`docs/HOST-INSTALL.md`](docs/HOST-INSTALL.md), and the troubleshooting
+section covers the usual permissions hiccups.
+
+The iOS controller is currently distributed through **TestFlight**
+(see [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md)); a public App Store
+build is on the roadmap.
 
 ## Architecture at a glance
 
