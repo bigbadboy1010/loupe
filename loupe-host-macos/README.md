@@ -61,7 +61,7 @@ Vollzugriff-Input ist mit App-Store-Sandbox nicht möglich → Developer-ID-Sign
 
 ```text
 sessionId:    loupe-dev-session
-signalingURL: wss://loupe.ddns.net/ws
+signalingURL: wss://signaling.theloupe.team/ws
 ```
 
 Start in Xcode ohne Run Arguments reicht. Der Host erzeugt zusätzlich zum Token eine QR-PNG unter `/tmp` bzw. im macOS Temporary Directory.

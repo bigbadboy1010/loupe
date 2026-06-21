@@ -2,6 +2,36 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## v0.4.0-domain-cutover — theloupe.team apex + Mailcow (2026-06-21)
+
+### Sprint 3: domain migration (hard cut, no parallel rollout)
+
+The public endpoint migrated from `loupe.ddns.net` (NoIP free tier)
+to `theloupe.team`. Old DNS A record is removed; clients on v0.3 must
+upgrade to v0.4 (the host refuses to start otherwise).
+
+- New apex: `https://theloupe.team/` (Let's Encrypt via Caddy)
+- WebRTC signaling: `wss://signaling.theloupe.team/ws`
+- Mail: `https://mail.theloupe.team/` (Mailcow behind the same Caddy)
+- TURN: `turn:signaling.theloupe.team:3478` (single-region EU; multi-region in v0.5)
+- Host default config (`LoupeEndpoint.primary`) updated to the new URL
+- All 24 active docs, scripts, and `.env.example` templates scrubbed of
+  the old hostname; the 7 historical references that remain (CHANGELOG,
+  RELEASE-NOTES, DOMAIN-MIGRATION, etc.) are documented as historical
+
+### Sprint 4: Trust & Consistency (also part of v0.4.0)
+
+- `/healthz` now reports a real `version` (was hardcoded `"dev"`).
+  Reads `BUILD_VERSION`, falls back to `GIT_SHA + npm_package_version`,
+  falls back to `npm_package_version`, falls back to `package.json`,
+  final fallback `"unknown"`. Dockerfile accepts `--build-arg
+  BUILD_VERSION=v0.4.0+abc1234 --build-arg GIT_SHA=abc1234` and the
+  compose file passes both through to the runtime.
+- New human-readable status page at `https://theloupe.team/status.html`
+  with live `/healthz` fetch, component cards, known issues, and a
+  public roadmap table.
+- Status link added to the global site navigation.
+
 ## v0.3.0-alpha — DTLSPinning protocol + loupe.app migration prep (2026-06-19)
 
 ### Security: DTLS-fingerprint binding (ADR-003, decision 4)

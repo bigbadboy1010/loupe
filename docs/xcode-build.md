@@ -1,6 +1,6 @@
 # Xcode Build Quickstart
 
-Stand dieser ZIP: Der Server ist auf `https://loupe.ddns.net` abgenommen.
+Stand dieser ZIP: Der Server ist auf `https://theloupe.team` abgenommen.
 
 ## 1. Workspace öffnen
 
@@ -33,7 +33,7 @@ Der Host ist bereits auf diese Defaults vorkonfiguriert:
 
 ```text
 sessionId:    loupe-dev-session
-signalingURL: wss://loupe.ddns.net/ws
+signalingURL: wss://signaling.theloupe.team/ws
 ```
 
 Arguments sind nur noch nötig, wenn du bewusst eine andere Session oder URL testen willst.
@@ -45,7 +45,7 @@ Host fingerprint: ...
 Pairing token: ...
 Pairing QR PNG: /var/folders/.../loupe-pairing-loupe-dev-session.png
 Transport: libwebrtc
-Starting Loupe host, session=loupe-dev-session, signaling=wss://loupe.ddns.net/ws
+Starting Loupe host, session=loupe-dev-session, signaling=wss://signaling.theloupe.team/ws
 Host running. Press Ctrl-C to stop.
 ```
 
@@ -81,7 +81,7 @@ Die App enthält bereits:
 
 - QR-Scanner
 - manuelle Token-Eingabe
-- `wss://loupe.ddns.net/ws` als dokumentierte Ziel-URL
+- `wss://signaling.theloupe.team/ws` als dokumentierte Ziel-URL
 - Camera Usage Description
 - Local Network Usage Description
 - `UserDefaultsTrustStore` für TOFU-Pinning
@@ -107,6 +107,6 @@ Erwartung:
 
 ```text
 {"status":"ok",...}
-Connection to loupe.ddns.net port 3478 [tcp/nat-stun-port] succeeded!
-Connection to loupe.ddns.net port 3478 [udp/nat-stun-port] succeeded!
+Connection to signaling.theloupe.team port 3478 [tcp/nat-stun-port] succeeded!
+Connection to signaling.theloupe.team port 3478 [udp/nat-stun-port] succeeded!
 ```

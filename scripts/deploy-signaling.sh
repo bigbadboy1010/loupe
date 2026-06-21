@@ -36,7 +36,7 @@ if [[ ! -d "$SIGNALING_DIR" ]]; then
   echo "ERROR: $SIGNALING_DIR does not exist" >&2
   exit 20
 fi
-if [[ ! -f "$SIGNALING_DIR/.env" && ! -f "$SIGNALING_DIR/.env.loupe-ddns.example" ]]; then
+if [[ ! -f "$SIGNALING_DIR/.env" && ! -f "$SIGNALING_DIR/.env.theloupe.example" ]]; then
   echo "WARN: no .env present locally. The server-side .env will not be touched," >&2
   echo "      but you must confirm it sets SERVE_SITE=true (or false) deliberately." >&2
 fi
@@ -54,7 +54,7 @@ cp "$SIGNALING_DIR/Dockerfile" "$OUT_DIR/"
 cp "$SIGNALING_DIR/docker-compose.yml" "$OUT_DIR/"
 cp "$SIGNALING_DIR/.dockerignore" "$OUT_DIR/"
 cp "$SIGNALING_DIR/.env.example" "$OUT_DIR/"
-cp "$SIGNALING_DIR/.env.loupe-ddns.example" "$OUT_DIR/"
+cp "$SIGNALING_DIR/.env.theloupe.example" "$OUT_DIR/"
 cp "$SIGNALING_DIR/README.md" "$OUT_DIR/"
 cp -R "$SIGNALING_DIR/src" "$OUT_DIR/src"
 cp -R "$SIGNALING_DIR/site" "$OUT_DIR/site"
@@ -86,14 +86,14 @@ cat <<'EOF'
   docker compose logs -f --tail=50 signaling
 
   # verify:
-  curl -fsS https://loupe.ddns.net/healthz
-  curl -fsS https://loupe.ddns.net/ | head -3
-  curl -fsS https://loupe.ddns.net/docs/pricing.html | head -3
+  curl -fsS https://theloupe.team/healthz
+  curl -fsS https://theloupe.team/ | head -3
+  curl -fsS https://theloupe.team/docs/pricing.html | head -3
 
   # (optional) waitlist admin export:
   WAITLIST_TOKEN=$(grep '^WAITLIST_ADMIN_TOKEN=' .env | cut -d= -f2-)
   curl -fsS -H "authorization: Bearer $WAITLIST_TOKEN" \
-       https://loupe.ddns.net/admin/waitlist.csv | head
+       https://theloupe.team/admin/waitlist.csv | head
 EOF
 
 echo

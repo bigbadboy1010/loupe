@@ -30,7 +30,7 @@ instead because:
 - Screen Capture via `ScreenCaptureKit` and Accessibility APIs are gated by
   user consent at the OS level, not by the App Store sandbox, so they work
   fine in a Developer-ID-signed and notarised `.app` distributed via
-  `loupe.ddns.net` and `github.com/bigbadboy1010/loupe/releases`.
+  `theloupe.team` and `github.com/bigbadboy1010/loupe/releases`.
 - TestFlight's reviewer experience is designed for App Store–style apps and
   adds friction (review windows, expiry dates) for a tool that users
   typically run on their own machine.

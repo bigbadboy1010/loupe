@@ -23,9 +23,9 @@ Ausreichend:
 
 | Parameter | Wert |
 |---|---|
-| Healthcheck | `https://loupe.ddns.net/healthz` |
-| WebSocket | `wss://loupe.ddns.net/ws` |
-| STUN/TURN | `loupe.ddns.net:3478` |
+| Healthcheck | `https://theloupe.team/healthz` |
+| WebSocket | `wss://signaling.theloupe.team/ws` |
+| STUN/TURN | `signaling.theloupe.team:3478` |
 | Session | `loupe-dev-session` |
 
 ## Host-Sollwerte

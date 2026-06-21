@@ -2,9 +2,9 @@
 
 ## Current deployment baseline
 
-- Public URL: `https://loupe.ddns.net`
-- Signaling WebSocket: `wss://loupe.ddns.net/ws`
-- STUN/TURN host: `loupe.ddns.net:3478`
+- Public URL: `https://theloupe.team`
+- Signaling WebSocket: `wss://signaling.theloupe.team/ws`
+- STUN/TURN host: `signaling.theloupe.team:3478`
 - TURN external IP from deployment: `212.186.18.125`
 - Root path `/` may return `404`; this is expected.
 - Required endpoints:
@@ -16,10 +16,10 @@
 Run from the Mac before opening Xcode:
 
 ```bash
-curl -i https://loupe.ddns.net/healthz
-npx wscat -c wss://loupe.ddns.net/ws
-nc -vz loupe.ddns.net 3478
-nc -vzu loupe.ddns.net 3478
+curl -i https://theloupe.team/healthz
+npx wscat -c wss://signaling.theloupe.team/ws
+nc -vz signaling.theloupe.team 3478
+nc -vzu signaling.theloupe.team 3478
 ```
 
 Expected:
@@ -91,7 +91,7 @@ Destination: `My Mac`
 The host uses production defaults without arguments:
 
 - Session ID: `loupe-dev-session`
-- Signaling URL: `wss://loupe.ddns.net/ws`
+- Signaling URL: `wss://signaling.theloupe.team/ws`
 
 Expected console lines:
 
@@ -100,7 +100,7 @@ Host fingerprint: ...
 Pairing token: ...
 Pairing QR PNG: /var/folders/.../loupe-pairing-loupe-dev-session.png
 Transport: libwebrtc
-Starting Loupe host, session=loupe-dev-session, signaling=wss://loupe.ddns.net/ws
+Starting Loupe host, session=loupe-dev-session, signaling=wss://signaling.theloupe.team/ws
 [LoupeHost] permissions screenRecording=true accessibility=true
 [LoupeHost] signaling connect requested
 [LoupeHost] join sent session=loupe-dev-session

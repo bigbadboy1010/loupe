@@ -37,7 +37,7 @@ We are not currently looking for big architectural changes. The protocol is at `
 
 ## Reporting security issues
 
-**Please don't file a public issue.** Email `security@loupe.ddns.net`. See [SECURITY.md](SECURITY.md) for the full policy, including PGP key and our response timeline.
+**Please don't file a public issue.** Email `security@theloupe.team`. See [SECURITY.md](SECURITY.md) for the full policy, including PGP key and our response timeline.
 
 ## Code of conduct
 

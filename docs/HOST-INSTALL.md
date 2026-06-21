@@ -226,7 +226,7 @@ rpath fixup + framework copy happen automatically.
 1. Confirm Screen Recording is granted (the host logs `screenRecording=ok`
    if so).
 2. Confirm the controller is on the same Wi-Fi or TURN is reachable.
-3. Visit <https://loupe.ddns.net/healthz> — it should return
+3. Visit <https://theloupe.team/healthz> — it should return
    `{"status":"ok",...}`.
 4. Run the diagnostics view in the controller — if ICE state stays in
    `checking`, your network blocks UDP; the host should fall back to
@@ -234,7 +234,7 @@ rpath fixup + framework copy happen automatically.
 
 ### Self-hosting the signaling server
 
-By default the host connects to the public `wss://loupe.ddns.net/ws`
+By default the host connects to the public `wss://signaling.theloupe.team/ws`
 signaling endpoint. To point at your own server, pass the URL as the
 second argument:
 

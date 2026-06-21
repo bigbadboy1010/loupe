@@ -1,7 +1,7 @@
 # TURN Abuse & Cost-Limit Concept
 
 Loupe runs a single-region coturn instance on
-`loupe.ddns.net:3478` (UDP/TCP). coturn is a standard STUN/TURN
+`signaling.theloupe.team:3478` (UDP/TCP). coturn is a standard STUN/TURN
 relay; on the public Free tier, every pairing that cannot establish
 a direct LAN path will allocate a TURN allocation and pump video
 through it. Without abuse controls, this is a **money pit** and a
@@ -89,7 +89,7 @@ exceed 8 Mbit/s no matter what they do.
 A cron job on the VPS (out of scope for this repo) tails
 `/var/log/coturn/turnserver.log` and the `ifconfig` byte
 counters. If egress on the TURN-facing interface exceeds
-**2 TB/month**, the cron sends an email to `security@loupe.ddns.net`
+**2 TB/month**, the cron sends an email to `security@theloupe.team`
 and auto-tightens `max-bps` to 2 Mbit/s globally. This is the
 last-line-of-defence against a slow-drip attack that would not
 trip the per-session cap.
@@ -129,9 +129,8 @@ IP range), the response is:
 ## What this does not solve
 
 - **Single-region latency.** A user in Australia hitting
-  `loupe.ddns.net` has 250+ ms RTT to the EU. Multi-region TURN
-  is the answer, but is a Sprint 4 effort and out of scope for
-  the cost-limit concept.
+  `signaling.theloupe.team` has 250+ ms RTT to the EU. Multi-region TURN
+  is the answer (Sprint 4 roadmap).
 - **Strong abuse attribution.** coturn does not know that a
   TURN allocation is being used for Loupe specifically, so it
   cannot differentiate legitimate Loupe traffic from other

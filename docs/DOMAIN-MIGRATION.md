@@ -1,13 +1,17 @@
-# Loupe domain migration: loupe.ddns.net -> loupe.app
+# Loupe domain migration: loupe.ddns.net -> theloupe.team
 
 This document describes the move of Loupe's public endpoints from
-the dynamic-DNS hostname `loupe.ddns.net` (A1 Telekom, residential
-connection) to a properly-registered `loupe.app` domain.
+the dynamic-DNS hostname `loupe.ddns.net` (NoIP free tier, residential
+connection) to a properly-registered `theloupe.team` domain.
 
-The migration is **additive, not breaking** for at least one minor
-version. `loupe.ddns.net` continues to work for the lifetime of v0.3
-and the v0.3 -> v0.4 transition window. The default endpoints in the
-host and controller move to `loupe.app` in v0.4.
+The migration was a **hard cut on 21.06.2026**, not a parallel rollout.
+`loupe.ddns.net` is decommissioned; clients on v0.3 must upgrade to v0.4.
+The default endpoints in the host and controller now point to
+`wss://signaling.theloupe.team/ws`.
+
+> **Historical note:** an earlier draft of this document planned a move
+> to `loupe.app`. That domain was never registered and the final
+> decision landed on `theloupe.team` instead.
 
 ## Why a custom domain
 
@@ -32,20 +36,23 @@ addresses with the public IPv4 of the host machine (currently
 
 | Name | Type | Value | Purpose |
 |------|------|-------|---------|
-| `loupe.app`              | A     | `212.186.18.125` | Landing page (www redirect) |
-| `loupe.app`              | AAAA  | `<IPv6>`         | Landing page (when available) |
-| `loupe.app`              | CAA   | `0 issue "letsencrypt.org"` | Allow Let's Encrypt for the apex |
-| `www.loupe.app`          | CNAME | `loupe.app`      | WWW redirect to apex |
-| `signaling.loupe.app`    | A     | `212.186.18.125` | WebSocket signaling endpoint |
-| `appcast.loupe.app`      | A     | `212.186.18.125` | Sparkle update feed (v0.4+) |
-| `downloads.loupe.app`    | A     | `212.186.18.125` | DMG downloads (v0.4+) |
-| `turn-eu.loupe.app`      | A     | `212.186.18.125` | EU TURN (v0.4+; same host for now) |
-| `turn-us.loupe.app`      | A     | `212.186.18.125` | US TURN (v0.4+; same host for now) |
-| `_acme-challenge.loupe.app` | TXT | `<per-renewal>`  | DNS-01 challenge for Let's Encrypt |
+| `theloupe.team`              | A     | `212.186.18.125` | Landing page (apex) |
+| `*.theloupe.team`            | A     | `212.186.18.125` | Wildcard (signaling, mail, etc.) |
+| `www.theloupe.team`          | A     | `212.186.18.125` | WWW → apex (301 via Caddy) |
+| `signaling.theloupe.team`    | A     | `212.186.18.125` | WebSocket signaling endpoint + TURN |
+| `mail.theloupe.team`         | A     | `212.186.18.125` | Mailcow reverse-proxy (HTTPS 443) |
+| `mail.theloupe.team`         | MX    | `10 mail.theloupe.team` | Mail MX (priority 10) |
 
-The `*.loupe.app` records currently all point at the same host
-because we have a single physical machine. Multi-region
-TURN in v0.4 will split them.
+Records are managed at the registrar (udag.org). All public-facing
+subdomains share the same physical host because Loupe runs on a
+single Lenovo server today; multi-region TURN in a future release
+will split signaling and TURN onto separate regional IPs.
+
+> Historical note: the original migration plan targeted `loupe.app`
+> and proposed Sparkle appcast subdomains (`appcast.`, `downloads.`,
+> `turn-eu.`, `turn-us.`). None of those were registered. The
+> final cutover on 21.06.2026 uses `theloupe.team` with Caddy as
+> the single reverse proxy and Let's Encrypt for all certs.
 
 ## Caddy virtual host
 

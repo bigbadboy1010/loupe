@@ -2,7 +2,7 @@
 # Export the Loupe waitlist from any environment that can reach the signaling server.
 #
 # Usage:
-#   LOUPE_BASE=https://loupe.ddns.net \
+#   LOUPE_BASE=https://theloupe.team \
 #   LOUPE_ADMIN_TOKEN=<token> \
 #   bash scripts/waitlist-export.sh > waitlist.csv
 #
@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-BASE="${LOUPE_BASE:-https://loupe.ddns.net}"
+BASE="${LOUPE_BASE:-https://theloupe.team}"
 TOKEN="${LOUPE_ADMIN_TOKEN:-}"
 
 if [[ -z "$TOKEN" ]]; then

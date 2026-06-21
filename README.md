@@ -2,13 +2,13 @@
 
 **Apple-native remote desktop. macOS ↔ iPhone. Sub-50 ms, end-to-end encrypted, account-free.**
 
-> 🌐 **Public endpoint is live:** [https://loupe.ddns.net](https://loupe.ddns.net) — landing page, pricing, self-host guide.
+> 🌐 **Public endpoint is live:** [https://theloupe.team](https://theloupe.team) — landing page, pricing, self-host guide.
 
 Loupe is private remote desktop for people who live in the Apple ecosystem. It pairs your Mac and your iPhone with a QR code, sends the screen over WebRTC with hardware H.264/HEVC, and never sees your screen, your keystrokes, or your clipboard. The signaling server only relays SDP and ICE — the media flows peer-to-peer, encrypted end-to-end.
 
 | Build status | Latest stable | Public endpoint |
 | ------------ | ------------- | --------------- |
-| CI on `main` (last 5 runs all green) | v0.2.0 (host) / v3.10 (controller) | `https://loupe.ddns.net` |
+| CI on `main` (last 5 runs all green) | v0.2.0 (host) / v3.10 (controller) | `https://theloupe.team` |
 
 **TL;DR:** No account. No media cloud. Self-hostable signaling. Source-available; commercial use requires a license.
 
@@ -60,7 +60,7 @@ build is on the roadmap.
 
 ```
 ┌──────────────┐    WebSocket (signaling only)    ┌────────────────┐
-│  Loupe Host  │ ◀───────────────────────────────▶│  loupe.ddns.net │
+│  Loupe Host  │ ◀───────────────────────────────▶│  signaling.theloupe.team │
 │  (macOS)     │                                  │  Fastify + coturn │
 │  ScreenCapture│                                  └────────────────┘
 │  Kit +       │
@@ -116,16 +116,16 @@ Loupe/
 
 - **Mac → iPhone is view-only.** Apple does not allow third-party apps to inject input on iOS. This is a platform policy, not a Loupe limitation. See [`docs/architecture.md`](docs/architecture.md#known-limitations).
 - **Multi-monitor** is on the roadmap but not shipped.
-- **TURN relay is single-region** (`212.186.18.125` via `loupe.ddns.net`). Self-host or wait for multi-region if you need HA.
+- **TURN relay is single-region** (`212.186.18.125` via `signaling.theloupe.team`). Self-host or wait for multi-region if you need HA.
 - **No App Store builds yet.** Sideload from source for now; TestFlight is the next step.
 
 ## Public endpoint
 
 ```
-Public URL:  https://loupe.ddns.net
-Healthcheck: https://loupe.ddns.net/healthz
-WebSocket:   wss://loupe.ddns.net/ws
-STUN/TURN:   loupe.ddns.net:3478 UDP/TCP
+Public URL:  https://theloupe.team
+Healthcheck: https://theloupe.team/healthz
+WebSocket:   wss://signaling.theloupe.team/ws
+STUN/TURN:   signaling.theloupe.team:3478 UDP/TCP
 ```
 
 The marketing site (`/`, `/docs/*`, `/privacy`, `/imprint`) and the waitlist (`POST /waitlist`) are served by the same Fastify container, gated behind `SERVE_SITE=true`. See [`loupe-signaling/README.md`](loupe-signaling/README.md) for the wire-level protocol and [`docs/landing-decisions.md`](docs/landing-decisions.md) for why we made the stack choices we did.
@@ -136,7 +136,7 @@ We welcome bug reports with reproduction details and small, focused PRs. See [`C
 
 ## License
 
-Source-available. Personal, non-commercial use is free. Commercial use requires a license — see [`LICENSE`](LICENSE) for the full text, or email `hello@loupe.ddns.net`.
+Source-available. Personal, non-commercial use is free. Commercial use requires a license — see [`LICENSE`](LICENSE) for the full text, or email `hello@theloupe.team`.
 
 ---
 
@@ -194,10 +194,10 @@ MVP-Skeleton mit abgenommenem Public Signaling/TURN-Endpoint, buildfähigem macO
 Der öffentliche MVP-Endpoint ist voreingestellt und geprüft:
 
 ```text
-Public URL:  https://loupe.ddns.net
-Healthcheck: https://loupe.ddns.net/healthz
-WebSocket:   wss://loupe.ddns.net/ws
-STUN/TURN:   loupe.ddns.net:3478 UDP/TCP
+Public URL:  https://theloupe.team
+Healthcheck: https://theloupe.team/healthz
+WebSocket:   wss://signaling.theloupe.team/ws
+STUN/TURN:   signaling.theloupe.team:3478 UDP/TCP
 TURN IP:     212.186.18.125
 ```
 

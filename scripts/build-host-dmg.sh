@@ -59,7 +59,7 @@ First launch:
   5. Open the QR PNG (it opens in Preview) and scan it with the
      LoupeController iOS / iPadOS / macOS app.
 
-The host listens on the loupe.ddns.net signaling server by default
+The host listens on the signaling.theloupe.team signaling server by default
 and on the same network via mDNS. Self-hosting instructions are in
 docs/self-host.html on the project website.
 

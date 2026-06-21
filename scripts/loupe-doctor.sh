@@ -3,9 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SIGNALING_DIR="$ROOT_DIR/loupe-signaling"
-HEALTH_URL="${LOUPE_HEALTH_URL:-https://loupe.ddns.net/healthz}"
-WS_URL="${LOUPE_WS_URL:-wss://loupe.ddns.net/ws}"
-TURN_HOST="${LOUPE_TURN_HOST:-loupe.ddns.net}"
+HEALTH_URL="${LOUPE_HEALTH_URL:-https://theloupe.team/healthz}"
+WS_URL="${LOUPE_WS_URL:-wss://signaling.theloupe.team/ws}"
+TURN_HOST="${LOUPE_TURN_HOST:-signaling.theloupe.team}"
 TURN_PORT="${LOUPE_TURN_PORT:-3478}"
 
 section() {

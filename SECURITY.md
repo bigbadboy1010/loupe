@@ -13,7 +13,7 @@ Loupe is end-to-end encrypted, but software has bugs. We take reports seriously.
 
 ## Reporting a vulnerability
 
-**Please email `security@loupe.ddns.net`** rather than filing a public GitHub issue. Include:
+**Please email `security@theloupe.team`** rather than filing a public GitHub issue. Include:
 
 - A description of the vulnerability and its impact.
 - Steps to reproduce, ideally with a minimal PoC.
@@ -34,7 +34,7 @@ in this repository.
   If you ever see a signed message from us claiming a key rotation, verify
   the new fingerprint against this file before trusting anything it says.
 
-For most issues, plaintext email to `security@loupe.ddns.net` is fine —
+For most issues, plaintext email to `security@theloupe.team` is fine —
 PGP is offered for the cases where reporters want stronger guarantees
 about recipient identity and confidentiality.
 
