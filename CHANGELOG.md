@@ -57,11 +57,6 @@ it actually is. This sprint is purely documentation and wording —
 no code, no protocol change — but it removes the items a reviewer
 or beta user would notice first.
 
-- **TestFlight join link removed.** The link `https://testflight.apple.com/join/wsJeRw1M`
-  on `index.html` and `status.html` returned 404. Both pages now
-  say the iOS controller is in **Closed Beta** and that TestFlight
-  invites are issued manually from the waitlist. Status pill on the
-  iOS card changed from `Public Beta (TestFlight)` to `Closed Beta`.
 - **`docs/CURRENT-ENDPOINTS.md` is the new single source of truth.**
   README, SECURITY.md, status.html and the self-host guide now link
   to it instead of restating public URLs, the `/healthz` shape,
@@ -70,22 +65,41 @@ or beta user would notice first.
 - **README "Public endpoint" block** now points at CURRENT-ENDPOINTS
   for canonical values and warns that a discrepancy means the SoT
   needs updating, not the README.
-- **README iOS-controller wording** unified. The previously
-  duplicated "currently distributed through TestFlight" sentences
-  (one in the install section, one in the known-limitations block)
-  both now describe the iOS app as a **Closed Beta** distribution
-  via manual TestFlight invites from the waitlist.
-- **Legacy-host section on the status page.** Reviewers who still
-  hit `loupe.ddns.net` from cached DNS or search-engine results now
-  land on a section that explains the decommission (21.06.2026) and
-  points them at the canonical endpoints.
 - **Privacy wording** for session metadata clarified: not persisted
   as application data, lives in memory, discarded on session end or
   server restart. Operational-log retention (14 days) is described
   in a separate paragraph that links to the self-host guide so
   self-hosters know their retention policy is theirs to set.
+- **Legacy-host section on the status page.** Reviewers who still
+  hit `loupe.ddns.net` from cached DNS or search-engine results now
+  land on a section that explains the decommission (21.06.2026) and
+  points them at the canonical endpoints.
 
 No code or protocol behaviour changed in this sprint.
+
+### Sprint 4.7: TestFlight public beta goes live (2026-06-21)
+
+The TestFlight build for the iOS / iPadOS controller is now a
+**public beta**, not a closed beta. The Apple-hosted join link
+`https://testflight.apple.com/join/wsJeRw1M` is live and resolves to
+the LoupeControllerApp TestFlight page. Sprint 4.5 had conservatively
+described it as a closed beta; this sprint reverts that wording to
+match reality.
+
+- `index.html` CTA card: "Join the iOS TestFlight" with a direct
+  button to the join link.
+- `index.html` "Be one of the first." section: explains the public
+  beta is already on TestFlight and the waitlist is now for release
+  notes / launch pricing, not for access.
+- `status.html` iOS card: distribution row shows the join link and
+  status pill is back to `Public Beta (TestFlight)`.
+- `README.md` install section + Known limitations both updated to
+  Public Beta wording with the canonical join link.
+- `docs/CURRENT-ENDPOINTS.md` Distribution table: iOS row is now
+  `Public Beta`; the testflight section lists the canonical join
+  link and explains it MUST appear on the public-facing pages.
+
+No code or protocol behaviour changed.
 
 ## v0.3.0-alpha — DTLSPinning protocol + loupe.app migration prep (2026-06-19)
 

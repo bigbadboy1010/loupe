@@ -52,10 +52,12 @@ ticket. Full step-by-step instructions are in
 [`docs/HOST-INSTALL.md`](docs/HOST-INSTALL.md), and the troubleshooting
 section covers the usual permissions hiccups.
 
-The iOS controller is in **Closed Beta**. TestFlight invites go out in
-waves from the waitlist — see [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md) for
-how invites are issued. App Store distribution follows once the closed
-beta stabilises.
+The iOS / iPadOS controller is in **Public Beta** on TestFlight:
+**[Open in TestFlight](https://testflight.apple.com/join/wsJeRw1M)** —
+iPhone or iPad, iOS 16 or newer, no invite code required. See
+[`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md) for the build identity, dSYM
+handling, and the App Store Connect workflow. An App Store listing
+will follow once the public beta stabilises.
 
 ## Architecture at a glance
 
@@ -118,10 +120,12 @@ Loupe/
 - **Mac → iPhone is view-only.** Apple does not allow third-party apps to inject input on iOS. This is a platform policy, not a Loupe limitation. See [`docs/architecture.md`](docs/architecture.md#known-limitations).
 - **Multi-monitor** is on the roadmap but not shipped.
 - **TURN relay is single-region** (`212.186.18.125` via `signaling.theloupe.team`). Self-host or wait for multi-region if you need HA.
-- **No App Store builds yet.** The iOS controller is in **Closed Beta** and
-  reaches testers via TestFlight invites issued manually from the waitlist.
-  See [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md) for how invites are sent,
-  and [`docs/CURRENT-ENDPOINTS.md`](docs/CURRENT-ENDPOINTS.md) for the
+- **iOS / iPadOS controller is in Public Beta on TestFlight.**
+  Open the build directly with the [TestFlight join link](https://testflight.apple.com/join/wsJeRw1M)
+  (iOS 16+). An App Store build will follow once the public beta
+  stabilises; see [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md) for the
+  build identity, dSYM handling, and the App Store Connect workflow, and
+  [`docs/CURRENT-ENDPOINTS.md`](docs/CURRENT-ENDPOINTS.md) for the
   canonical distribution channel list.
 
 ## Security model

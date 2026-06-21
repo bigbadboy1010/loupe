@@ -1,0 +1,76 @@
+# Caddyfile snippet — legacy hostname redirects
+# ----------------------------------------------------------
+# Drop this block into the production Caddyfile (the one fronting
+# theloupe.team) BEFORE the apex site block. It hard-redirects the
+# decommissioned legacy hostname(s) to the canonical endpoint(s) so
+# crawlers, security reviewers, and stale clients get a single,
+# consistent answer.
+#
+# Why this exists
+# ---------------
+# On 2026-06-21 the Loupe public endpoint was hard-cut from
+# `loupe.ddns.net` (NoIP free-tier DNS) to `theloupe.team`. The DNS
+# A record was removed at the registrar but the previous container
+# behind the old hostname is still answering HTTP requests from
+# cached resolvers / search-engine caches. Its `/healthz` is leaking
+# internal operational counters (activeSessions, pairingCodes,
+# rateLimitBuckets) that the new minimal `/healthz` deliberately
+# does not expose. That is a privacy/trust regression and must be
+# closed.
+#
+# This snippet gives the operator a one-shot fix: redirect the old
+# hostname at the edge instead of relying on the upstream container
+# to behave.
+#
+# Where it goes
+# -------------
+# File on the production host: /etc/caddy/Caddyfile (or the equivalent
+# bind-mounted location). Insert this block ABOVE the existing
+# `theloupe.team` block. Caddy picks the first matching site block, so
+# legacy redirects must come first.
+#
+# Verify after applying
+# ---------------------
+#   curl -sI https://loupe.ddns.net/ | head -3
+#     -> HTTP/2 301
+#        location: https://theloupe.team/
+#
+#   curl -sI https://loupe.ddns.net/healthz | head -3
+#     -> HTTP/2 301
+#        location: https://theloupe.team/healthz
+#
+#   curl -s https://loupe.ddns.net/.well-known/acme-challenge/foo
+#     -> 404 (Caddy no longer serves ACME for this hostname;
+#        certificate renewal moves entirely to theloupe.team)
+
+# --- BEGIN LOUPE LEGACY REDIRECTS ---
+
+# Primary decommissioned hostname. Redirect everything to theloupe.team
+# with the same path; strip the query string on root for cleanliness.
+loupe.ddns.net {
+    redir https://theloupe.team{path} 308
+}
+
+# Internal legacy alias kept briefly during the v0.3 -> v0.4 cutover.
+# Defensive redirect — same target.
+loupe.app {
+    redir https://theloupe.team{path} 308
+}
+
+# Optional hardening: if you want the old hostname to answer on plain
+# HTTP and force HTTPS, add a listener block too. Most operators skip
+# this because the hostname no longer has a certificate and the ACME
+# challenge will fail anyway.
+#
+# http://loupe.ddns.net {
+#     redir https://theloupe.team{path} 308
+# }
+
+# --- END LOUPE LEGACY REDIRECTS ---
+
+# Existing apex block stays exactly as it was. Place this snippet
+# ABOVE the existing apex block in /etc/caddy/Caddyfile:
+#
+#     theloupe.team, www.theloupe.team {
+#         ...
+#     }

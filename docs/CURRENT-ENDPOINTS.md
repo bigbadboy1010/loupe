@@ -47,14 +47,16 @@ The exact build identity (`version`) is the value reported by
 | Component                  | Channel                                       | Status        |
 | -------------------------- | --------------------------------------------- | ------------- |
 | macOS Host (LoupeHost)     | Developer-ID signed + Apple-notarised DMG     | Public Beta   |
-| iOS / iPadOS Controller    | TestFlight, manual invites from the waitlist  | Closed Beta   |
+| iOS / iPadOS Controller    | TestFlight public beta (join link below)      | Public Beta   |
 | macOS Controller Companion | Build from source                             | Public Beta   |
 | Signaling + TURN           | Container image (`loupe-signaling`), self-hostable | Public Beta |
 
-- **TestFlight invitations** are sent manually from the waitlist. There is **no
-  public TestFlight join link**. Do not publish one in the README, status page,
-  or marketing site. If you find `https://testflight.apple.com/join/*` anywhere
-  in this repo, it is stale and must be removed.
+- **TestFlight public beta join link:**
+  <https://testflight.apple.com/join/wsJeRw1M>
+  This is the canonical, public join link for the iOS / iPadOS
+  controller. It MUST appear on `index.html`, `status.html`, and the
+  README. The waitlist form is for users who want release notes and
+  launch pricing — not for TestFlight access.
 - **Host DMG** is the canonical download path:
   <https://github.com/bigbadboy1010/loupe/releases>
 
@@ -79,11 +81,33 @@ notes, or default configurations:
 - `loupe.app` — internal legacy alias kept briefly during the cutover;
   decommissioned same day.
 
-If a reviewer or user reports that `loupe.ddns.net` still resolves or still
-serves a page, that is either (a) DNS cache at the resolver, (b) Wayback
-Machine / search-engine cache, or (c) a stale local client. The authoritative
-action is to point them at this file and at
-[`theloupe.team/status.html`](https://theloupe.team/status.html).
+### Active server-side hardening (2026-06-21)
+
+The decommission is **not complete** until the legacy hostname stops
+serving its own content at the edge. As of the latest review the
+container behind `loupe.ddns.net` is still answering requests from
+cached resolvers and is leaking a pre-v0.4 `/healthz` shape
+(`activeSessions`, `pairingCodes`, `rateLimitBuckets`) that the
+canonical endpoint deliberately does not expose.
+
+The fix lives in the repo and is one operator action away from
+production:
+
+- Caddy snippet: [`infra/caddy/Caddyfile.legacy-redirects`](../infra/caddy/Caddyfile.legacy-redirects)
+- Runbook with apply + verify steps:
+  [`infra/caddy/legacy-host-decommission.md`](../infra/caddy/legacy-host-decommission.md)
+
+The runbook defines a single `caddy reload` and four `curl -sI`
+verifications. Once applied, `loupe.ddns.net` and `loupe.app` 308 to
+`theloupe.team` with the same path, the old `/healthz` stops
+answering, and ACME no longer renews a certificate for the legacy
+hostname.
+
+If a reviewer or user reports that `loupe.ddns.net` still resolves
+or still serves a page, that is either (a) DNS cache at the
+resolver, (b) Wayback Machine / search-engine cache, (c) a stale
+local client, or (d) the Caddy redirect has not been applied yet —
+check (d) against the runbook first.
 
 ## How to keep this in sync
 
