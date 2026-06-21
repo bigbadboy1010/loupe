@@ -51,6 +51,13 @@ upgrade to v0.4 (the host refuses to start otherwise).
 
 ## v0.3.0-alpha — DTLSPinning protocol + loupe.app migration prep (2026-06-19)
 
+> **Historical note:** the `loupe.app` domain referenced in this entry
+> was **never registered** and the migration target changed to
+> `theloupe.team` in v0.4 (see "v0.4.0-domain-cutover" above). This
+> section is preserved because the DTLSPinning work shipped in this
+> release and the migration plan documents the rationale for the
+> eventual hard cut.
+
 ### Security: DTLS-fingerprint binding (ADR-003, decision 4)
 
 The long-promised DTLS-fingerprint binding is now implemented as a
@@ -85,11 +92,12 @@ ok    base64URL round-trip is lossless
 === DTLSPinning smoke test: 8 passed, 0 failed ===
 ```
 
-The wire exchange is **not yet** wired into the live
-`WebRTCPeerConnection.dataChannel` flow. That integration is
-v0.3.0-final, planned for the next sprint. Until then, the protocol
-is implemented and unit-tested but not yet enforced on real
-connections.
+The wire exchange was **not yet** wired into the live
+`WebRTCPeerConnection.dataChannel` flow at the time of this alpha.
+That integration landed in v0.4 ("v0.4.0-domain-cutover" above); see
+that entry for the current state (enforced on both sides of the
+channel, with a graceful-degrade log when the controller's public key
+is not yet carried by the signaling protocol).
 
 ### Domain migration: loupe.ddns.net -> loupe.app
 

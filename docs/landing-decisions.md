@@ -37,7 +37,7 @@ The `WaitlistStore` API is shaped to make that swap mechanical: `append(entry)` 
 
 ## Why Fastify and not a separate "landing service"?
 
-- **One origin = one Caddy rule = one TLS cert**. The client apps already trust `loupe.ddns.net`; serving the marketing site on the same origin means we don't introduce a new host that needs to be on the controller's HSTS preload list.
+- **One origin = one Caddy rule = one TLS cert**. The client apps trust `theloupe.team` (formerly `loupe.ddns.net`, decommissioned 21.06.2026); serving the marketing site on the same origin means we don't introduce a new host that needs to be on the controller's HSTS preload list.
 - **One health check**. `/healthz` already returns session counts; we extended it conceptually (waitlist size can be exposed there when we want it).
 - **Feature-flag gated**. `SERVE_SITE=false` by default means existing signaling-only deployments (e.g. enterprise self-hosters who don't want the marketing site on their relay) get exactly the behavior they had before.
 

@@ -31,7 +31,7 @@ delta is the per-frame glass-to-glass latency.
 | **Host** | MacBook Pro M5, 16 GB, macOS 27.0 | Loupe Host v0.2.0 |
 | **Controller** | iPhone 17 Pro Max "DerTerrorHacker17" | iOS 27.0 |
 | **Network** | Apple Time Capsule Wi-Fi 6E, 5 GHz | WPA3-Personal |
-| **Signaling** | `wss://loupe.ddns.net/ws` (public host) | TURN on `loupe.ddns.net:3478` |
+| **Signaling** | `wss://signaling.theloupe.team/ws` (public host) | TURN on `signaling.theloupe.team:3478` |
 
 All five test runs used the same hardware; only the network state
 varied (congestion, distance from AP, background sync activity).
@@ -40,7 +40,7 @@ varied (congestion, distance from AP, background sync activity).
 
 1. Host: `scripts/build-host-app.sh && scripts/sign-host-app.sh`
 2. Controller: install via Xcode on the physical iPhone
-3. Pair via QR code from `loupe.ddns.net`
+3. Pair via QR code from `theloupe.team`
 4. Wait 10 seconds after the connected view stabilises
 5. Capture diagnostics from the controller's live FPS indicator and
    the host's stderr stream for 60 seconds

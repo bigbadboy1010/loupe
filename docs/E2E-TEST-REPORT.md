@@ -8,7 +8,7 @@ Last E2E verification run on physical hardware: 2026-06-19, between
 | **Host (Mac)** | MacBook Pro M5, 16 GB, macOS 27.0 | serial D674W3RV0R |
 | **Controller (iPhone)** | iPhone 17 Pro Max | name "DerTerrorHacker17" |
 | **Network** | Apple Time Capsule Wi-Fi 6E, 5 GHz | WPA3-Personal |
-| **Signaling** | `wss://loupe.ddns.net/ws` | Lenovo theflyingcoons |
+| **Signaling** | `wss://signaling.theloupe.team/ws` | Lenovo theflyingcoons |
 
 ## Test matrix
 
