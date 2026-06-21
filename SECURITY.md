@@ -2,6 +2,11 @@
 
 Loupe is end-to-end encrypted, but software has bugs. We take reports seriously.
 
+Mailboxes and public endpoints referenced in this file are kept in sync with
+[`docs/CURRENT-ENDPOINTS.md`](docs/CURRENT-ENDPOINTS.md) — that file is the
+single source of truth for `security@theloupe.team`, the public healthcheck,
+and the distribution channels.
+
 ## Supported versions
 
 | Version | Supported          |

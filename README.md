@@ -52,9 +52,10 @@ ticket. Full step-by-step instructions are in
 [`docs/HOST-INSTALL.md`](docs/HOST-INSTALL.md), and the troubleshooting
 section covers the usual permissions hiccups.
 
-The iOS controller is currently distributed through **TestFlight**
-(see [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md)); a public App Store
-build is on the roadmap.
+The iOS controller is in **Closed Beta**. TestFlight invites go out in
+waves from the waitlist — see [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md) for
+how invites are issued. App Store distribution follows once the closed
+beta stabilises.
 
 ## Architecture at a glance
 
@@ -117,7 +118,11 @@ Loupe/
 - **Mac → iPhone is view-only.** Apple does not allow third-party apps to inject input on iOS. This is a platform policy, not a Loupe limitation. See [`docs/architecture.md`](docs/architecture.md#known-limitations).
 - **Multi-monitor** is on the roadmap but not shipped.
 - **TURN relay is single-region** (`212.186.18.125` via `signaling.theloupe.team`). Self-host or wait for multi-region if you need HA.
-- **No App Store builds yet.** Sideload from source for now; TestFlight is the next step.
+- **No App Store builds yet.** The iOS controller is in **Closed Beta** and
+  reaches testers via TestFlight invites issued manually from the waitlist.
+  See [`docs/TESTFLIGHT.md`](docs/TESTFLIGHT.md) for how invites are sent,
+  and [`docs/CURRENT-ENDPOINTS.md`](docs/CURRENT-ENDPOINTS.md) for the
+  canonical distribution channel list.
 
 ## Security model
 
@@ -168,6 +173,11 @@ The live status of these defences (and which build is running on the
 public endpoint) is mirrored on the public [status page](https://theloupe.team/status.html).
 
 ## Public endpoint
+
+The single source of truth for public URLs, the `/healthz` shape, and
+distribution channels is [`docs/CURRENT-ENDPOINTS.md`](docs/CURRENT-ENDPOINTS.md).
+The values below are a copy for quick reference; if you find a discrepancy,
+update CURRENT-ENDPOINTS.md and re-run `rg` against the docs.
 
 ```
 Public URL:  https://theloupe.team
