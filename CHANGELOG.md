@@ -31,6 +31,23 @@ upgrade to v0.4 (the host refuses to start otherwise).
   with live `/healthz` fetch, component cards, known issues, and a
   public roadmap table.
 - Status link added to the global site navigation.
+- **DTLS-fingerprint pinning wired into the live WebRTC flow.**
+  The `DTLSPinning` protocol (ADR-003, decision 4) was previously
+  implemented and unit-tested in isolation. This sprint moves it to
+  `implemented` on both the host and the controller: `WebRTCPeerConnection`
+  now extracts the local and remote SDP fingerprints, builds the
+  signed pinning message, and gates the input data channel on
+  verification. The 8-case unit test in `DTLSPinningTests` still passes.
+  Full enforcement waits on a sprint-5 signaling-protocol extension
+  that carries the controller's public key to the host; today the
+  host logs `[LoupeHost] DTLS-pinning SKIPPED: no peer public key`
+  and degrades gracefully instead of refusing to connect.
+- **Security model section in the README.** New "Security model"
+  section documents every defence in two orthogonal axes:
+  Maturity (designed / implemented / enforced) and Verification
+  (tested / manual). Lists 14 defences with their current state,
+  pointer to where each lives in the code, and links the table
+  to the live status page.
 
 ## v0.3.0-alpha — DTLSPinning protocol + loupe.app migration prep (2026-06-19)
 

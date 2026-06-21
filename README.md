@@ -119,6 +119,54 @@ Loupe/
 - **TURN relay is single-region** (`212.186.18.125` via `signaling.theloupe.team`). Self-host or wait for multi-region if you need HA.
 - **No App Store builds yet.** Sideload from source for now; TestFlight is the next step.
 
+## Security model
+
+Loupe is designed around the threat model of a **passive or active on-path
+attacker on the same network** as either the host or the controller. It is
+not designed to defend against a compromised host (the host sees your screen
+by design) or a compromised iPhone. We document two orthogonal axes:
+
+| Maturity      | Meaning                                                                                                |
+|---------------|--------------------------------------------------------------------------------------------------------|
+| **designed**  | The threat model names this attack and the design intends to defend against it.                       |
+| **implemented** | The code that defends against it exists in `main` and compiles.                                       |
+| **enforced**  | The code runs on real connections in the default build. Input from an attacker is rejected, not just logged. |
+
+| Verification  | Meaning                                                                                                |
+|---------------|--------------------------------------------------------------------------------------------------------|
+| **tested**    | An automated test (XCTest, smoke test, or end-to-end acceptance) covers this exact behaviour.          |
+
+A defence can be in any combination of these states. The strongest possible
+state is **enforced + tested**; "designed" without "implemented" is aspirational;
+"implemented" without "enforced" is dormant (it might be a no-op by default).
+
+| Defence                                            | Maturity     | Tested     | Where to look                                                           |
+|----------------------------------------------------|--------------|------------|-------------------------------------------------------------------------|
+| Transport encryption (DTLS-SRTP)                   | enforced     | tested     | libwebrtc; WebRTC spec mandates it                                      |
+| Signaling transport (WSS over TLS)                 | enforced     | tested     | `wss://signaling.theloupe.team/ws`; Caddy + Let's Encrypt               |
+| TURN credentials rotate (no shared long-term secret) | enforced    | tested     | `TURN_SECRET` + `turn-cred` message; credentials are per-session        |
+| Pairing-token TOFU (Trust On First Use)            | enforced     | tested     | `UserDefaultsTrustStore` on iOS / macOS controller; pinned on first scan |
+| **DTLS-fingerprint binding** (ADR-003, decision 4) | implemented  | tested     | `DTLSPinning.swift` + 8-case unit test (`DTLSPinningTests`)             |
+| &nbsp;&nbsp;…on the host wire path                 | implemented  |            | `WebRTCPeerConnection` host-side now signs + verifies; graceful-degrade log if controller key not yet wired in |
+| &nbsp;&nbsp;…on the controller wire path           | implemented  |            | `WebRTCPeerConnection` controller-side now signs + verifies; refuses to send input before verification |
+| &nbsp;&nbsp;…end-to-end over a real WebRTC session | (depends on sprint-5) | tested once landed | Code wired, but enforcement still depends on a sprint-5 signaling-protocol change to carry the controller's public key. Today: `[LoupeHost] DTLS-pinning SKIPPED: no peer public key` is logged and pinning is a no-op. |
+| Host code-signing + notarisation                   | enforced     | tested     | `loupe-host-macos/Sources/LoupeHost/Build/DeveloperID-*.sh`; Apple notarisation ticket checked at install |
+| Host bundle integrity check                        | implemented  |            | Sparkle-style `edSignature` on the DMG + `spctl --assess` at first launch |
+| Privacy: server sees SDP and ICE candidates only   | designed     |            | The signaling server never sees video frames or input events; it forwards opaque blobs |
+| Privacy: TURN relay sees encrypted media only      | designed     |            | Standard DTLS-SRTP; the relay cannot see pixels |
+| Multi-tenant isolation on the signaling server     | enforced     | tested     | `RateLimiter`, per-session rooms, role checks (`requireRole`); see `loupe-signaling/src/security/` |
+| Vulnerability disclosure channel                   | enforced     | manual     | `security@theloupe.team`; PGP key in [`SECURITY.md`](SECURITY.md)       |
+
+If a row says "designed" but not "enforced", that's where you should
+not trust Loupe yet. The sprint-4 work moved DTLS-fingerprint binding
+from "designed" to "implemented" and wired it into the live wire path
+on both sides of the connection. The remaining step (signaling-protocol
+extension) lands in sprint 5; once that lands the row flips to "enforced"
+without code changes here.
+
+The live status of these defences (and which build is running on the
+public endpoint) is mirrored on the public [status page](https://theloupe.team/status.html).
+
 ## Public endpoint
 
 ```
