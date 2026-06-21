@@ -102,7 +102,7 @@
 				A10000000000000000000008 /* Frameworks */,
 				A10000000000000000000019 /* Embed Frameworks */,
 				A1000000000000000000000F /* Resources */,
-			1A18ADBFA527457E9C2FA038 /* Generate WebRTC stub dSYM */,
+				1A18ADBFA527457E9C2FA038 /* Generate WebRTC stub dSYM */,
 			);
 			buildRules = (
 			);
@@ -166,6 +166,7 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
 		1A18ADBFA527457E9C2FA038 /* Generate WebRTC stub dSYM */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -179,15 +180,13 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/WebRTC.framework.dSYM",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/WebRTC.framework.dSYM",
-			);
 			shellScript = "set -e\nif [ -f \"${BUILT_PRODUCTS_DIR}/WebRTC.framework/WebRTC\" ] && [ ! -d \"${BUILT_PRODUCTS_DIR}/WebRTC.framework.dSYM\" ]; then\n  echo \"==> Generating stub dSYM for WebRTC.framework\"\n  # Build in a temp dir to avoid sandbox restrictions on the build products dir\n  TMPDSYM=$(mktemp -d -t webrtc-dsym)\n  mkdir -p \"${TMPDSYM}/Contents/Resources/DWARF\"\n  cat > \"${TMPDSYM}/Contents/Info.plist\" <<PLISTEND\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<plist version=\"1.0\"><dict>\n<key>CFBundleIdentifier</key><string>org.webrtc.WebRTC</string>\n<key>CFBundleName</key><string>WebRTC</string>\n<key>CFBundlePackageType</key><string>dSYM</string>\n<key>CFBundleVersion</key><string>1</string>\n<key>CFBundleShortVersionString</key><string>1.0</string>\n</dict></plist>\nPLISTEND\n  cp \"${BUILT_PRODUCTS_DIR}/WebRTC.framework/WebRTC\" \"${TMPDSYM}/Contents/Resources/DWARF/WebRTC\"\n  cp -R \"${TMPDSYM}\" \"${BUILT_PRODUCTS_DIR}/WebRTC.framework.dSYM\"\n  rm -rf \"${TMPDSYM}\"\n  echo \"   dSYM created at ${BUILT_PRODUCTS_DIR}/WebRTC.framework.dSYM\"\nfi\n";
 		};
-
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A1000000000000000000000E /* Sources */ = {
@@ -331,7 +330,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 355NB9T8RJ;
@@ -373,7 +372,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = 355NB9T8RJ;
 				ENABLE_PREVIEWS = YES;
