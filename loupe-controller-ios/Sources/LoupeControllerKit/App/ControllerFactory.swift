@@ -9,11 +9,24 @@ public enum ControllerFactory {
         public let signalingURL: URL
         public let sessionId: String
         public let peerId: String
+        /// Optional: the controller's own device identity. When supplied,
+        /// enables DTLS-fingerprint binding on the live channel.
+        public let controllerIdentity: DeviceIdentity?
+        /// Optional: the host's long-lived public key from the pairing payload.
+        /// When supplied together with `controllerIdentity`, enables DTLS
+        /// binding enforcement.
+        public let hostPublicKeyBase64URL: String?
 
-        public init(signalingURL: URL, sessionId: String, peerId: String) {
+        public init(signalingURL: URL,
+                    sessionId: String,
+                    peerId: String,
+                    controllerIdentity: DeviceIdentity? = nil,
+                    hostPublicKeyBase64URL: String? = nil) {
             self.signalingURL = signalingURL
             self.sessionId = sessionId
             self.peerId = peerId
+            self.controllerIdentity = controllerIdentity
+            self.hostPublicKeyBase64URL = hostPublicKeyBase64URL
         }
     }
 
@@ -22,7 +35,10 @@ public enum ControllerFactory {
     @MainActor
     public static func makeViewModel(_ config: Configuration) throws -> ControllerViewModel {
         let signaling = SignalingClient(url: config.signalingURL)
-        let peer = try makePeer()
+        let peer = try makePeer(
+            identity: config.controllerIdentity,
+            hostPublicKeyBase64URL: config.hostPublicKeyBase64URL
+        )
         return ControllerViewModel(
             sessionId: config.sessionId,
             peerId: config.peerId,
@@ -38,7 +54,8 @@ public enum ControllerFactory {
         from payload: PairingPayload,
         controllerPeerId: String,
         trustStore: TrustStore,
-        trustOnFirstUse: Bool = true
+        trustOnFirstUse: Bool = true,
+        controllerIdentity: DeviceIdentity? = nil
     ) throws -> ControllerViewModel {
         guard let signalingURL = URL(string: payload.signaling) else {
             throw FactoryError.invalidSignalingURL(payload.signaling)
@@ -60,13 +77,21 @@ public enum ControllerFactory {
         return try makeViewModel(Configuration(
             signalingURL: signalingURL,
             sessionId: payload.sessionId,
-            peerId: controllerPeerId
+            peerId: controllerPeerId,
+            controllerIdentity: controllerIdentity,
+            hostPublicKeyBase64URL: payload.hostKey
         ))
     }
 
-    private static func makePeer() throws -> PeerConnection {
+    private static func makePeer(
+        identity: DeviceIdentity?,
+        hostPublicKeyBase64URL: String?
+    ) throws -> PeerConnection {
         #if canImport(WebRTC)
-        return WebRTCPeerConnection()
+        return WebRTCPeerConnection(
+            identity: identity,
+            hostPublicKeyBase64URL: hostPublicKeyBase64URL
+        )
         #else
         throw FactoryError.webRTCUnavailable
         #endif
@@ -87,14 +112,16 @@ public extension ControllerFactory {
         pairingToken: String,
         controllerPeerId: String,
         trustStore: TrustStore,
-        trustOnFirstUse: Bool = true
+        trustOnFirstUse: Bool = true,
+        controllerIdentity: DeviceIdentity? = nil
     ) throws -> ControllerViewModel {
         let payload = try PairingPayload.decode(fromToken: pairingToken)
         return try makeViewModel(
             from: payload,
             controllerPeerId: controllerPeerId,
             trustStore: trustStore,
-            trustOnFirstUse: trustOnFirstUse
+            trustOnFirstUse: trustOnFirstUse,
+            controllerIdentity: controllerIdentity
         )
     }
 }

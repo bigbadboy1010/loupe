@@ -684,17 +684,27 @@ private struct MacPairingEntryView: View {
         do {
             let token = pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
             let payload = try PairingPayload.decode(fromToken: token)
+            // Load or create the macOS controller's long-lived Ed25519
+            // device identity from the Keychain. Same key persists across
+            // app launches so the host can pin us on subsequent pairings.
+            let controllerIdentity = try loadControllerIdentity()
             let model = try ControllerFactory.makeViewModel(
                 from: payload,
                 controllerPeerId: controllerPeerId,
                 trustStore: trustStore,
-                trustOnFirstUse: true
+                trustOnFirstUse: true,
+                controllerIdentity: controllerIdentity
             )
             errorMessage = nil
             viewModel = model
         } catch {
             errorMessage = "Pairing Token konnte nicht verwendet werden: \(error.localizedDescription)"
         }
+    }
+
+    private func loadControllerIdentity() throws -> DeviceIdentity {
+        let storage = KeychainKeyStorage(account: "com.miggu69.loupe.macos-controller.identity")
+        return try DeviceIdentity.loadOrCreate(storage: storage)
     }
 
     private func pasteTokenFromClipboard() {

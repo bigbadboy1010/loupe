@@ -21,6 +21,10 @@ private enum AppDefaults {
     static let fallbackSessionId = "loupe-dev-session"
     static let trustKeyPrefix = "com.miggu69.loupe.controller.trust."
     static let controllerPeerIdKey = "com.miggu69.loupe.controller.peerId"
+    /// Keychain account name used for the controller's long-lived Ed25519
+    /// device identity. Used by `loadControllerIdentity` to persist the key
+    /// across app launches.
+    static let controllerKeychainAccount = "com.miggu69.loupe.controller.identity"
 
     static func controllerPeerId() -> String {
         let defaults = UserDefaults.standard
@@ -602,16 +606,32 @@ private struct PairingEntryView: View {
     private func connect(with payload: PairingPayload) {
         errorMessage = nil
         do {
+            // Load or create this controller's long-lived Ed25519 device
+            // identity. The private key is stored in the iOS Keychain so it
+            // survives app reinstalls via the device backup (or is lost on
+            // full erase, which matches the user's expectation for security
+            // material). The same identity signs the DTLS-fingerprint pinning
+            // message on every new connection.
+            let controllerIdentity = try loadControllerIdentity()
             let model = try ControllerFactory.makeViewModel(
                 from: payload,
                 controllerPeerId: controllerPeerId,
                 trustStore: trustStore,
-                trustOnFirstUse: true
+                trustOnFirstUse: true,
+                controllerIdentity: controllerIdentity
             )
             viewModel = model
         } catch {
             errorMessage = "Verbindung konnte nicht vorbereitet werden: \(error.localizedDescription)"
         }
+    }
+
+    /// Loads (or creates on first run) the controller's long-lived device
+    /// identity from the iOS Keychain. The Keychain entry uses a fixed
+    /// account name so the same identity is restored across app launches.
+    private func loadControllerIdentity() throws -> DeviceIdentity {
+        let storage = KeychainKeyStorage(account: AppDefaults.controllerKeychainAccount)
+        return try DeviceIdentity.loadOrCreate(storage: storage)
     }
 
     private func pasteTokenFromClipboard() {

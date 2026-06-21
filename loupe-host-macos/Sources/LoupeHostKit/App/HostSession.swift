@@ -223,6 +223,11 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
         case let .peerJoined(peerId):
             log("controller joined peer=\(peerId)")
             controllerPresent = true
+            // NOTE: When the signaling protocol starts carrying the
+            // controller's public key (sprint 5), this is the place to call
+            // `peer.setPeerPublicKey(base64URL:)`. Until then the host's
+            // DTLS-pinning layer will degrade gracefully and log a loud
+            // warning at ICE-connect time, but it will not enforce binding.
             await startOfferIfReady()
         case let .answer(sdp):
             do {

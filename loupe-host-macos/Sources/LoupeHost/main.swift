@@ -153,8 +153,8 @@ let signaling = SignalingClient(url: signalingURL)
 // fall back to the null transport so the capture/encode pipeline can be brought
 // up without WebRTC.
 #if canImport(WebRTC)
-let peer: PeerConnection = WebRTCPeerConnection()
-FileHandle.standardError.write(Data("Transport: libwebrtc\n".utf8))
+let peer: PeerConnection = WebRTCPeerConnection(identity: identity)
+FileHandle.standardError.write(Data("Transport: libwebrtc (DTLS-fingerprint binding enforced)\n".utf8))
 #else
 let peer: PeerConnection = NullPeerConnection()
 FileHandle.standardError.write(Data("Transport: null (build with the WebRTC package for real P2P)\n".utf8))
