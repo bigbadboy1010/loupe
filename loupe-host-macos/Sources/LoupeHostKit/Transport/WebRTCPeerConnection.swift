@@ -314,16 +314,19 @@ public final class WebRTCPeerConnection: NSObject, PeerConnection, VideoFrameCon
         }
         guard let channel, channel.readyState == .open else { return }
         if peerKey == nil {
-            // We never received the controller's public key. The signaling
-            // protocol does not yet carry it; until that lands in a future
-            // sprint, we degrade gracefully: skip pinning enforcement and
-            // surface a loud log warning. Input events will still flow,
-            // because refusing to do so would break all current sessions.
-            FileHandle.standardError.write(
-                Data("[LoupeHost] DTLS-pinning SKIPPED: no peer public key available. Set WebRTCPeerConnection.setPeerPublicKey(base64URL:) when the pairing token is exchanged to enable binding enforcement.\n".utf8)
-            )
-            // Mark pinning as "skipped" so we don't retry on every state change.
-            lock.lock(); pinningMessageSent = true; lock.unlock()
+            // Sprint 5 strict mode: the controller did not advertise a
+            // publicKey on `peer-joined`, so we cannot verify a pinning
+            // message. We refuse to fall back to "skip + log"; instead
+            // we close the input channel so the controller sees a clear
+            // signal that the host requires sprint-5+ to participate.
+            //
+            // Until sprint 5 this branch logged a warning and let the
+            // session continue without pinning. That was acceptable for
+            // the alpha transition; now that pinning is enforced end-to-end
+            // (controller sends key, server relays, host installs), a
+            // missing key means the peer is too old. Refusing silently
+            // would weaken the security posture we just built up.
+            failPinning(reason: "DTLS-pinning FAILED: no peer public key. Controller must advertise publicKey on join (sprint 5+ protocol).")
             return
         }
         guard let peerKey else { return }
@@ -398,17 +401,12 @@ public final class WebRTCPeerConnection: NSObject, PeerConnection, VideoFrameCon
             return false
         }
         guard let peerKey else {
-            // We never received the controller's public key; we cannot
-            // verify a pinning message from the peer. The honest thing
-            // is to drop the channel rather than silently weaken security,
-            // but until the signaling protocol carries the controller's
-            // public key, that would break every existing client. So we
-            // log loudly and allow the message through.
-            FileHandle.standardError.write(
-                Data("[LoupeHost] DTLS-pinning verification SKIPPED: no peer public key available. Set WebRTCPeerConnection.setPeerPublicKey(base64URL:) to enable enforcement.\n".utf8)
-            )
-            lock.lock(); pinningVerified = true; lock.unlock()
-            return true
+            // Sprint 5 strict mode: we cannot verify a pinning message
+            // from a peer that did not advertise its key. Until sprint 5
+            // this branch logged a warning and let the message through;
+            // with strict enforcement it must close the channel.
+            failPinning(reason: "DTLS-pinning FAILED: no peer public key available. Controller must advertise publicKey on join (sprint 5+ protocol).")
+            return false
         }
         guard let text = String(data: data, encoding: .utf8) else {
             failPinning(reason: "DTLS-pinning message was not valid UTF-8")

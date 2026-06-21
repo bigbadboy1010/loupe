@@ -52,7 +52,7 @@ Nach dem ICE/DTLS-Aufbau signiert jede Seite das **DTLS-Fingerprint-Tupel** (lok
 | 1. Ed25519/Curve25519 device identity | ✅ | `loupe-controller-ios/Sources/LoupeControllerKit/Pairing/DeviceIdentity.swift`, `loupe-host-macos/Sources/LoupeHostKit/Pairing/DeviceIdentity.swift` |
 | 2. QR-Code as primary, 6-digit shortcode as fallback | ✅ | `PairingPayload.decode(fromToken:)` + `PairingEntryView` (iOS) / `HostSession.start()` (macOS) |
 | 3. TOFU + Pinning + hard abort on key mismatch | ✅ | `TrustStore` + `TrustStore.assertKnownOrThrow(_:)` |
-| 4. DTLS-Fingerprint-Tupel signiert über DataChannel | ⚠️ Partial | Key exchange helpers existieren; integration into the WebRTC `RTCDataChannel` flow lands in v0.3 (siehe `docs/CHANGELOG.md` v0.3-plan). Bis dahin: der QR/shortcode-Pfad plus TOFU+Pinning deckt den häufigsten MITM-Vektor (Signaling-Server-Kompromiss) bereits ab, aber eine **reine Kanal-MITM ohne Server-Kompromiss** wäre noch nicht erkennbar. |
+| 4. DTLS-Fingerprint-Tupel signiert über DataChannel | ✅ Enforced (Sprint 5) | Sprint 5 closes the relay path: the controller now sends its long-lived Ed25519 publicKey on the signaling `join` message, the server relays it on `peer-joined`, the host installs it via `WebRTCPeerConnection.setPeerPublicKey(base64URL:)` before ICE reaches `connected`, and the host's strict-mode enforcement closes the input channel if the key is missing or a pinning message fails to verify. Wire-shape covered by `loupe-signaling/test/smoke.ts` (relay without/with key + invalid-key rejection). |
 
 **Security-Claim, den das System heute erfüllen kann (Stand 2026-06-19):**
 
@@ -61,10 +61,15 @@ Nach dem ICE/DTLS-Aufbau signiert jede Seite das **DTLS-Fingerprint-Tupel** (lok
   der gescannte Public-Key als TOFU-Pin geprüft wird.
 - ✅ **Host-Identität wechselt sichtbar.** Wechselt der präsentierte Host-Key von
   dem was im QR stand → harter Abbruch mit Warnung.
-- ⚠️ **Reine DTLS-MITM-Erkennung** (Entscheidung 4) ist **noch nicht** scharf
-  implementiert. Der QR-Pin + TOFU deckt den Real-World-Vektor (Signaling
-  compromised) ab, aber eine MITM-Stelle, die DTLS-Zertifikate in Echtzeit
-  umschreibt, würde derzeit nicht auffallen. **Eskalation im Plan, v0.3.**
+- ✅ **Reine DTLS-MITM-Erkennung** (Entscheidung 4) ist seit Sprint 5 (2026-06-21)
+  **end-to-end enforced**: der Controller trägt seinen Public Key im
+  Signaling-`join`, der Server relayed ihn auf `peer-joined`, der Host
+  installiert ihn vor ICE-`connected`, und der strikte Modus schließt
+  den Input-Channel, falls die anschließende Pinning-Signatur nicht
+  verifiziert. Ein MITM, der DTLS-Zertifikate in Echtzeit umschreibt,
+  wird jetzt zuverlässig erkannt — die einzige Hintertür ist ein
+  gleichzeitiger Besitz beider privater Schlüssel (Host + Controller),
+  was per Definition ausgeschlossen ist.
 
 ## Konsequenzen
 

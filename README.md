@@ -155,10 +155,10 @@ state is **enforced + tested**; "designed" without "implemented" is aspirational
 | Signaling transport (WSS over TLS)                 | enforced     | tested     | `wss://signaling.theloupe.team/ws`; Caddy + Let's Encrypt               |
 | TURN credentials rotate (no shared long-term secret) | enforced    | tested     | `TURN_SECRET` + `turn-cred` message; credentials are per-session        |
 | Pairing-token TOFU (Trust On First Use)            | enforced     | tested     | `UserDefaultsTrustStore` on iOS / macOS controller; pinned on first scan |
-| **DTLS-fingerprint binding** (ADR-003, decision 4) | implemented  | tested     | `DTLSPinning.swift` + 8-case unit test (`DTLSPinningTests`)             |
-| &nbsp;&nbsp;…on the host wire path                 | implemented  |            | `WebRTCPeerConnection` host-side now signs + verifies; graceful-degrade log if controller key not yet wired in |
-| &nbsp;&nbsp;…on the controller wire path           | implemented  |            | `WebRTCPeerConnection` controller-side now signs + verifies; refuses to send input before verification |
-| &nbsp;&nbsp;…end-to-end over a real WebRTC session | (depends on sprint-5) | tested once landed | Code wired, but enforcement still depends on a sprint-5 signaling-protocol change to carry the controller's public key. Today: `[LoupeHost] DTLS-pinning SKIPPED: no peer public key` is logged and pinning is a no-op. |
+| **DTLS-fingerprint binding** (ADR-003, decision 4) | **enforced**  | tested     | `DTLSPinning.swift` + 8-case unit test (`DTLSPinningTests`); sprint 5 closes the relay path end-to-end |
+| &nbsp;&nbsp;…on the host wire path                 | **enforced**  | tested     | `WebRTCPeerConnection` host-side now signs + verifies; **strict mode closes the input channel** if the controller's public key is missing or the pinning signature fails to verify |
+| &nbsp;&nbsp;…on the controller wire path           | **enforced**  | tested     | `WebRTCPeerConnection` controller-side now signs + verifies; refuses to send input before verification |
+| &nbsp;&nbsp;…end-to-end over a real WebRTC session | **enforced**  | tested     | The controller's long-lived Ed25519 publicKey travels on the signaling `join` message, the server relays it on `peer-joined`, and the host installs it via `WebRTCPeerConnection.setPeerPublicKey(base64URL:)` before ICE reaches `connected`. Wire-shape covered by `loupe-signaling/test/smoke.ts` (relay without/with key + invalid-key rejection) |
 | Host code-signing + notarisation                   | enforced     | tested     | `loupe-host-macos/Sources/LoupeHost/Build/DeveloperID-*.sh`; Apple notarisation ticket checked at install |
 | Host bundle integrity check                        | implemented  |            | Sparkle-style `edSignature` on the DMG + `spctl --assess` at first launch |
 | Privacy: server sees SDP and ICE candidates only   | designed     |            | The signaling server never sees video frames or input events; it forwards opaque blobs |
@@ -167,11 +167,17 @@ state is **enforced + tested**; "designed" without "implemented" is aspirational
 | Vulnerability disclosure channel                   | enforced     | manual     | `security@theloupe.team`; PGP key in [`SECURITY.md`](SECURITY.md)       |
 
 If a row says "designed" but not "enforced", that's where you should
-not trust Loupe yet. The sprint-4 work moved DTLS-fingerprint binding
-from "designed" to "implemented" and wired it into the live wire path
-on both sides of the connection. The remaining step (signaling-protocol
-extension) lands in sprint 5; once that lands the row flips to "enforced"
-without code changes here.
+not trust Loupe yet. Sprint 4 moved DTLS-fingerprint binding from
+"designed" to "implemented" and wired it into the live wire path on
+both sides of the connection. **Sprint 5 (2026-06-21)** closes the
+signaling-protocol extension that the relay needs: the controller now
+sends its long-lived Ed25519 publicKey on the signaling `join`
+message, the server relays it on `peer-joined`, and the host installs
+it via `WebRTCPeerConnection.setPeerPublicKey(base64URL:)` before
+ICE reaches `connected`. The host now runs in strict mode — if the
+key is missing or a pinning signature fails to verify, the input
+channel is closed rather than just logged. A MITM that injects its
+own DTLS certificate is therefore rejected, not silently bypassed.
 
 The live status of these defences (and which build is running on the
 public endpoint) is mirrored on the public [status page](https://theloupe.team/status.html).

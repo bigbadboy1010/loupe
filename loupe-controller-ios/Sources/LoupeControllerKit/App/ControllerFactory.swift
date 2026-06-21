@@ -43,7 +43,10 @@ public enum ControllerFactory {
             sessionId: config.sessionId,
             peerId: config.peerId,
             signaling: signaling,
-            peer: peer
+            peer: peer,
+            // Sprint 5: pass the controller's device identity through so the
+            // view model can include its publicKey on every `join` message.
+            controllerIdentity: config.controllerIdentity
         )
     }
 

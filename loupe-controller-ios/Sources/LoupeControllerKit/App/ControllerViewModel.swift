@@ -28,6 +28,10 @@ public final class ControllerViewModel: ObservableObject {
     private let peerId: String
     private let signaling: SignalingClient
     private let peer: PeerConnection
+    // Sprint 5: held so the publicKey is included on `join` (see the
+    // helpers at the bottom of the file). When nil the controller runs
+    // in pre-sprint-5 mode and the host will close the input channel.
+    private let controllerIdentity: DeviceIdentity?
     private let frameConverter = VideoFrameConverter()
 
     private var eventTask: Task<Void, Never>?
@@ -48,11 +52,23 @@ public final class ControllerViewModel: ObservableObject {
     private var lastVideoFrameAt: Date?
     private var framesSinceMetricReset = 0
 
-    public init(sessionId: String, peerId: String, signaling: SignalingClient, peer: PeerConnection) {
+    public init(
+        sessionId: String,
+        peerId: String,
+        signaling: SignalingClient,
+        peer: PeerConnection,
+        // Sprint 5: optional controller device identity. When non-nil, the
+        // publicKey is included on the signaling `join` message so the host
+        // can install it via `WebRTCPeerConnection.setPeerPublicKey(...)`
+        // before ICE reaches `connected`. This is what enables DTLS-
+        // fingerprint binding enforcement on the live channel.
+        controllerIdentity: DeviceIdentity? = nil
+    ) {
         self.sessionId = sessionId
         self.peerId = peerId
         self.signaling = signaling
         self.peer = peer
+        self.controllerIdentity = controllerIdentity
         self.diagnostics = ControllerDiagnostics(
             sessionId: sessionId,
             peerId: peerId,
@@ -127,7 +143,7 @@ public final class ControllerViewModel: ObservableObject {
         signaling.connect()
         updateDiagnostics { $0.signalingState = "connected" }
         Task {
-            await signaling.send(.join(sessionId: sessionId, peerId: peerId, role: "controller"))
+            await signaling.send(makeJoinSignal())
             await signaling.send(.turnCred)
             setPhase(.waitingForHost)
             updateDiagnostics { $0.lastEvent = "join+turn-cred sent" }
@@ -480,7 +496,7 @@ public final class ControllerViewModel: ObservableObject {
         }
 
         await signaling.send(.leave(sessionId: sessionId))
-        await signaling.send(.join(sessionId: sessionId, peerId: peerId, role: "controller"))
+        await signaling.send(makeJoinSignal())
         await signaling.send(.turnCred)
         setPhase(.waitingForHost)
         updateDiagnostics { $0.lastEvent = "rejoin+turn-cred sent" }
@@ -565,6 +581,24 @@ public final class ControllerViewModel: ObservableObject {
         case .streaming: return "streaming"
         case .failed: return "failed"
         }
+    }
+
+    // MARK: Sprint 5: signaling publicKey helper
+    //
+    // Build the `join` signal the controller sends on initial connect and
+    // on every signaling reconnect. When a `controllerIdentity` was
+    // provided at construction time, the controller's long-lived public
+    // key is included on the wire so the host can install it via
+    // `WebRTCPeerConnection.setPeerPublicKey(base64URL:)` before ICE
+    // reaches `connected`. Without the key the host's strict-mode
+    // enforcement closes the input channel.
+    private func makeJoinSignal() -> OutboundSignal {
+        .join(
+            sessionId: sessionId,
+            peerId: peerId,
+            role: "controller",
+            publicKey: controllerIdentity?.publicKeyBase64URL
+        )
     }
 }
 

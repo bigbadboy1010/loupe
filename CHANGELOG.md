@@ -170,6 +170,97 @@ blog post or a status-page buried section.
 
 No code or protocol behaviour changed in this addition.
 
+### Sprint 5: DTLS-fingerprint binding enforced end-to-end (2026-06-21)
+
+ADR-003 (decision 4) is now **enforced**, not just implemented. The
+controller's long-lived Ed25519 publicKey travels on the signaling
+`join` message, the server relays it on `peer-joined`, and the host
+installs it via `WebRTCPeerConnection.setPeerPublicKey(base64URL:)`
+before ICE reaches `connected`. The host runs in **strict mode**: if
+the key is missing or a pinning signature fails to verify, the input
+channel is closed rather than just logged. A MITM that injects its
+own DTLS certificate is therefore rejected on the live channel, not
+silently bypassed.
+
+**Wire protocol (server side, `loupe-signaling/src/signaling/`):**
+
+- `messages.ts`: `join` schema now accepts an optional `publicKey`
+  (43-char base64url = 32 raw Ed25519 bytes, regex-validated). The
+  outbound `peer-joined` message carries the controller's publicKey
+  forward to the host.
+- `session.ts`: `Peer` interface gains `readonly publicKey?: string`.
+- `handler.ts`: at `join` time the controller's publicKey is stored on
+  the `Peer` and conditionally spread into the relayed `peer-joined`
+  message. `exactOptionalPropertyTypes` is respected by never assigning
+  `publicKey: undefined` explicitly.
+
+**Client side (`loupe-host-macos` + `loupe-controller-ios`):**
+
+- `SignalingMessages.swift` (both kits): `OutboundSignal.join` gains an
+  optional `publicKey: String? = nil`. The encode() method skips the
+  field when nil, so pre-sprint-5 controllers keep emitting a
+  back-compat payload with no `publicKey`. On the host kit,
+  `InboundSignal.peerJoined(peerId, publicKey: String?)` decodes the
+  relayed key.
+- `ControllerViewModel.swift` (controller only): holds the optional
+  `controllerIdentity` and routes its `publicKeyBase64URL` through a
+  new `makeJoinSignal()` helper on every `join` (initial + reconnect).
+- `ControllerFactory.swift`: passes `controllerIdentity` into the
+  view-model init so the helper has something to inject.
+- `HostSession.swift`: in the `peerJoined` handler,
+  `peer?.setPeerPublicKey(base64URL: publicKey)` is called before
+  `startOfferIfReady()`, so the key is in place before ICE completes.
+- `WebRTCPeerConnection.swift` (host only): the previous
+  "skip + log loud warning" branches in `trySendPinningMessage` and
+  `handlePinningMessage` are replaced with `failPinning(reason:)`,
+  which closes the input channel. The pre-sprint-5 log
+  `[LoupeHost] DTLS-pinning SKIPPED: no peer public key` no longer
+  appears — its replacement is
+  `DTLS-pinning FAILED: no peer public key. Controller must advertise
+  publicKey on join (sprint 5+ protocol).`
+
+**Tests:**
+
+- `loupe-signaling/test/smoke.ts` extended with three new cases:
+  controller without key → host's `peer-joined` carries no `publicKey`;
+  controller with a 43-char key → host receives the same key verbatim;
+  controller with a malformed key → server returns `INVALID_MESSAGE`.
+- `loupe-controller-ios/Tests/LoupeControllerKitTests/SignalingMessagesTests.swift`
+  added with controller-side wire-format cases. (The test target
+  itself is currently unbuildable on macOS test hosts because the
+  controller's library target transitively depends on WebRTC.framework
+  — this is a pre-existing infrastructure problem, not caused by
+  sprint 5. See commit message for the workaround.)
+- `loupe-controller-ios/Tests/LoupeControllerKitTests/Sources/SignalingMessages.swift`
+  is a sibling copy of the production `Transport/SignalingMessages.swift`
+  so the test target can compile the protocol types in hermetic
+  isolation. Keep the two copies in sync when touching the protocol.
+
+**Public docs:**
+
+- `docs/ADR-003-pairing.md`: decision 4 row flips from
+  "⚠️ Partial" to "✅ Enforced (Sprint 5)"; the security-claim list
+  flips the corresponding line from warning to "end-to-end enforced".
+- `README.md` Security-Model table: DTLS-fingerprint binding row
+  flips to **enforced** for the main row, the host wire path, the
+  controller wire path, and the end-to-end row. The narrative below
+  the table is updated to match.
+- `loupe-signaling/site/status.html`: DTLS-fingerprint-pinning row
+  flips from "implemented" to "enforced" with the new behaviour
+  described inline.
+- `docs/CURRENT-ENDPOINTS.md` does not change (the public endpoint
+  surface is unchanged; only the protocol layer behind it is extended).
+
+**Behaviour change for existing clients:**
+
+- Pre-sprint-5 controllers (no publicKey on join) will see the host
+  close the input channel with a clear log line. The screen stream
+  itself still works — only input events stop. This is the correct
+  behaviour: a controller that cannot prove its identity cannot drive
+  the host. Users on older TestFlight builds should be told to update
+  to the sprint-5 build (TestFlight link is unchanged: see
+  `docs/CURRENT-ENDPOINTS.md`).
+
 ## v0.3.0-alpha — DTLSPinning protocol + loupe.app migration prep (2026-06-19)
 
 > **Historical note:** the `loupe.app` domain referenced in this entry

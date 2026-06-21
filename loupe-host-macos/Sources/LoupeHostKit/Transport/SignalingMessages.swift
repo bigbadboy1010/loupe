@@ -35,23 +35,33 @@ public struct IceServer: Codable, Sendable, Equatable {
 
 /// Messages sent from this client to the signaling server.
 public enum OutboundSignal: Encodable, Sendable {
-    case join(sessionId: String, peerId: String, role: String)
+    case join(sessionId: String, peerId: String, role: String, publicKey: String? = nil)
     case offer(sessionId: String, payload: SdpPayload)
     case answer(sessionId: String, payload: SdpPayload)
     case ice(sessionId: String, payload: IceCandidatePayload)
     case turnCred
     case leave(sessionId: String)
 
-    private enum CodingKeys: String, CodingKey { case type, sessionId, peerId, role, payload }
+    private enum CodingKeys: String, CodingKey { case type, sessionId, peerId, role, publicKey, payload }
 
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .join(sessionId, peerId, role):
+        case let .join(sessionId, peerId, role, publicKey):
             try c.encode("join", forKey: .type)
             try c.encode(sessionId, forKey: .sessionId)
             try c.encode(peerId, forKey: .peerId)
             try c.encode(role, forKey: .role)
+            // Sprint 5: the host never carries a publicKey in the join
+            // message. The host's long-lived key is exchanged via the QR
+            // pairing payload, not via signaling. The controller, on the
+            // other hand, sets this field so the server can relay it to
+            // the host on `peer-joined` and the host can install it via
+            // WebRTCPeerConnection.setPeerPublicKey(base64URL:) before
+            // ICE reaches `connected`.
+            if let publicKey {
+                try c.encode(publicKey, forKey: .publicKey)
+            }
         case let .offer(sessionId, payload):
             try c.encode("offer", forKey: .type)
             try c.encode(sessionId, forKey: .sessionId)
@@ -76,7 +86,11 @@ public enum OutboundSignal: Encodable, Sendable {
 /// Messages received from the signaling server.
 public enum InboundSignal: Sendable {
     case joined(role: String)
-    case peerJoined(peerId: String)
+    /// Sprint 5: when the controller carries a publicKey, it is forwarded
+    /// on this case so the host can install it via
+    /// `WebRTCPeerConnection.setPeerPublicKey(base64URL:)` before ICE
+    /// reaches `connected`. Old controllers (pre-sprint-5) send `nil`.
+    case peerJoined(peerId: String, publicKey: String?)
     case peerLeft
     case offer(SdpPayload)
     case answer(SdpPayload)
@@ -91,7 +105,10 @@ public enum InboundSignal: Sendable {
         case "joined":
             return .joined(role: envelope.role ?? "")
         case "peer-joined":
-            return .peerJoined(peerId: envelope.peerId ?? "")
+            return .peerJoined(
+                peerId: envelope.peerId ?? "",
+                publicKey: envelope.publicKey
+            )
         case "peer-left":
             return .peerLeft
         case "offer":
@@ -122,11 +139,14 @@ public enum InboundSignal: Sendable {
         let message: String?
         let iceServers: [IceServer]?
         let ttlSeconds: Int?
+        // Sprint 5: relayed on `peer-joined` from a controller that joined
+        // with the field. Absent (nil) on legacy controllers.
+        let publicKey: String?
         let payloadSdp: SdpPayload?
         let payloadIce: IceCandidatePayload?
 
         private enum CodingKeys: String, CodingKey {
-            case type, role, peerId, code, message, iceServers, ttlSeconds, payload
+            case type, role, peerId, code, message, iceServers, ttlSeconds, publicKey, payload
         }
 
         init(from decoder: Decoder) throws {
@@ -138,6 +158,7 @@ public enum InboundSignal: Sendable {
             message = try c.decodeIfPresent(String.self, forKey: .message)
             iceServers = try c.decodeIfPresent([IceServer].self, forKey: .iceServers)
             ttlSeconds = try c.decodeIfPresent(Int.self, forKey: .ttlSeconds)
+            publicKey = try c.decodeIfPresent(String.self, forKey: .publicKey)
             // `payload` is polymorphic depending on `type`; try both shapes.
             payloadSdp = try? c.decodeIfPresent(SdpPayload.self, forKey: .payload)
             payloadIce = try? c.decodeIfPresent(IceCandidatePayload.self, forKey: .payload)

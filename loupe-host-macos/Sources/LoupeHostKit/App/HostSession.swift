@@ -220,14 +220,23 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
             await processPendingOfferIfReady()
             await processPendingIceCandidatesIfReady()
             await startOfferIfReady()
-        case let .peerJoined(peerId):
-            log("controller joined peer=\(peerId)")
+        case let .peerJoined(peerId, publicKey):
+            log("controller joined peer=\(peerId) publicKey=\(publicKey != nil ? "set" : "missing")")
             controllerPresent = true
-            // NOTE: When the signaling protocol starts carrying the
-            // controller's public key (sprint 5), this is the place to call
-            // `peer.setPeerPublicKey(base64URL:)`. Until then the host's
-            // DTLS-pinning layer will degrade gracefully and log a loud
-            // warning at ICE-connect time, but it will not enforce binding.
+            // Sprint 5: install the controller's publicKey on the WebRTC
+            // peer connection BEFORE ICE reaches `connected`. The host's
+            // DTLS-pinning layer will then enforce binding and refuse
+            // input events until the controller's signed fingerprint
+            // message verifies. Without the key, the host's strict-mode
+            // enforcement closes the input channel — which is the correct
+            // behavior: a controller that does not advertise a publicKey
+            // is too old to participate in pinning.
+            if let publicKey {
+                peer?.setPeerPublicKey(base64URL: publicKey)
+                log("DTLS-pinning armed: peer public key installed (len=\(publicKey.count))")
+            } else {
+                log("DTLS-pinning NOT armed: controller did not advertise a publicKey on join")
+            }
             await startOfferIfReady()
         case let .answer(sdp):
             do {
