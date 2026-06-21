@@ -14,14 +14,14 @@ import UniformTypeIdentifiers
 //
 // Production defaults are preconfigured for the deployed public endpoint:
 //   sessionId:    loupe-dev-session
-//   signalingURL: wss://loupe.ddns.net/ws
+//   signalingURL: wss://signaling.theloupe.team/ws
 //
 // Requires Screen Recording and Accessibility permissions. If missing, it prints
 // what to grant and triggers the system prompts.
 
 private enum HostDefaults {
     static let sessionId = "loupe-dev-session"
-    static let signalingURL = "wss://loupe.ddns.net/ws"
+    static let signalingURL = "wss://signaling.theloupe.team/ws"
     static let hostKeychainAccount = "macos-host"
 }
 

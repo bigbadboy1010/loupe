@@ -17,7 +17,7 @@ struct LoupeControllerApp: App {
 }
 
 private enum AppDefaults {
-    static let signalingURL = "wss://loupe.ddns.net/ws"
+    static let signalingURL = "wss://signaling.theloupe.team/ws"
     static let fallbackSessionId = "loupe-dev-session"
     static let trustKeyPrefix = "com.miggu69.loupe.controller.trust."
     static let controllerPeerIdKey = "com.miggu69.loupe.controller.peerId"
@@ -211,7 +211,7 @@ private struct WelcomeFlow: View {
                         .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: qrPulse)
                 }
                 .padding(.top, 4)
-                Text("Open loupe.ddns.net on your Mac,\nthen tap the QR button below.")
+                Text("Open theloupe.team on your Mac,\nthen tap the QR button below.")
                     .font(.headline)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
