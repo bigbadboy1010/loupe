@@ -23,24 +23,47 @@
 
 ## `/healthz` response (public fields only)
 
-The endpoint returns **only** non-sensitive counters. No session IDs, peer
-IDs, IP addresses, or pairing codes are exposed.
+The endpoint returns **only** non-sensitive fields. No session IDs, peer
+IDs, IP addresses, pairing codes, or operational counters (sessions,
+peers, waitlistSize, nodeEnv) are exposed.
 
 ```json
 {
   "status": "ok",
   "uptimeSeconds": 1234,
-  "version": "v0.4.0+<git-sha>",
-  "sessions": 0,
-  "peers": 0,
-  "waitlistSize": 0,
-  "nodeEnv": "production"
+  "version": "v0.4.0+<git-sha>"
 }
 ```
 
 The exact build identity (`version`) is the value reported by
 `https://theloupe.team/healthz` at runtime. It is the authoritative
 "what is running right now" answer.
+
+## `/healthz/internal` response (operator-only)
+
+Live operational counters (`sessions`, `peers`, `waitlistSize`,
+`nodeEnv`) are available to operators on `/healthz/internal`,
+authenticated by the same `WAITLIST_ADMIN_TOKEN` that the waitlist
+admin endpoints use, sent as the `X-Loupe-Ops-Token` request header:
+
+```bash
+curl -s -H "X-Loupe-Ops-Token: $WAITLIST_ADMIN_TOKEN" \
+  https://theloupe.team/healthz/internal
+# {"status":"ok","uptimeSeconds":1234,"version":"v0.4.0+<sha>",
+#  "sessions":0,"peers":0,"waitlistSize":4,"nodeEnv":"production"}
+```
+
+Without a valid token: `401 Unauthorized`. When `WAITLIST_ADMIN_TOKEN`
+is not configured (e.g. self-host without admin surface):
+`503 OPS_MONITORING_DISABLED`. The endpoint is **never** reachable
+without a token, so crawlers and third-party monitors cannot enumerate
+it.
+
+This split exists because the live counters were previously in the
+public `/healthz` response — a real privacy regression for an
+Apple-native remote desktop that promises minimal metadata
+exposure. The operator endpoint keeps the same observability for the
+operator without paying for it in public surface area.
 
 ## Distribution channels
 

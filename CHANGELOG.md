@@ -101,6 +101,75 @@ match reality.
 
 No code or protocol behaviour changed.
 
+### Sprint 4.8: Public /healthz minimized + operator-only internal surface (2026-06-21)
+
+External review of the public beta surface flagged that the new
+`/healthz` endpoint, while much smaller than the pre-v0.4 shape, still
+exposed live operational counters (`sessions`, `peers`, `waitlistSize`,
+`nodeEnv`) to any anonymous caller. For an Apple-native remote desktop
+that promises minimal metadata exposure, that was a privacy regression
+in its own right.
+
+This sprint splits the healthcheck into two endpoints:
+
+- **`GET /healthz`** is now strictly minimal: it returns only
+  `status`, `uptimeSeconds`, and `version`. Crawlers, security
+  reviewers, and third-party monitors see the same shape
+  regardless of whether the server is idle, busy, or restarted.
+- **`GET /healthz/internal`** returns the full observability surface,
+  but requires the `WAITLIST_ADMIN_TOKEN` (already used for the
+  waitlist admin endpoints) in the `X-Loupe-Ops-Token` request header.
+  Without the token the endpoint returns `401 Unauthorized`. If the
+  token is not configured at all (e.g. a self-host that does not run
+  the admin surface) the endpoint returns `503 OPS_MONITORING_DISABLED`.
+  Either way, no anonymous caller can enumerate it.
+
+The change touches:
+
+- `src/server.ts` — public response reduced; new authenticated route
+  added with constant-time token comparison.
+- `test/site.smoke.ts` — four new smoke checks: public response shape
+  is exactly `{status, uptimeSeconds, version}`; internal endpoint
+  returns 401 without a token; 401 with a wrong token; 200 with the
+  configured admin token.
+- `loupe-signaling/site/status.html` — the operator card no longer
+  shows live sessions / peers / waitlist / environment publicly, and
+  links to `docs/CURRENT-ENDPOINTS.md` for the rationale. The JS is
+  trimmed to match.
+- `loupe-signaling/site/docs/self-host.html` — the example
+  `/healthz` response matches the new public shape, and the
+  self-hoster gets a concrete `curl` recipe for the operator endpoint.
+- `docs/CURRENT-ENDPOINTS.md` — both endpoints documented with the
+  rationale ("why we did not just keep the counters in the public
+  response").
+
+### Sprint 4.8: Public "Known issues" page (2026-06-21)
+
+External review repeatedly asked for an honest, public list of what
+is and is not working in the public beta — not buried in the status
+page, not implicit in pricing pills, but a single page a beta tester
+can read before opening an issue.
+
+This sprint adds `https://theloupe.team/known-issues.html`:
+
+- Lists the four active issues that already drive the status page
+  pills (iOS view-only, single-region TURN, DTLS pinning not yet
+  enforced, dynamic IP causing some mail-gateway spam flags) plus
+  multi-monitor "not yet shipped".
+- Calls out the three issues that were flagged in previous reviews
+  and are now resolved (healthz counter leak, legacy hostname
+  serving the old site, README/SECURITY.md/iphone-test-acceptance
+  drift).
+- Documents three workarounds that help today (Gatekeeper drag-to-
+  Applications, iOS 16+ requirement, ScreenCaptureKit backgrounding
+  looks like a network drop to the controller).
+
+The page is linked from the global site nav on both `index.html`
+and `status.html` so beta testers do not need to discover it from a
+blog post or a status-page buried section.
+
+No code or protocol behaviour changed in this addition.
+
 ## v0.3.0-alpha — DTLSPinning protocol + loupe.app migration prep (2026-06-19)
 
 > **Historical note:** the `loupe.app` domain referenced in this entry
