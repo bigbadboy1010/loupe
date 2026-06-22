@@ -213,6 +213,43 @@ Known follow-ups (deferred):
   * Library split for `swift test` on the host — done in Sprint 8,
     see below.
 
+### Sprint 9: macOS .app bundle generation script (2026-06-22)
+
+Closes the "Library-Split sprint 7 follow-up" item: the host can
+now be packaged into a real double-clickable `.app` bundle from
+the SwiftPM build, with a one-shot shell script.
+
+`scripts/build-macos-app.sh` runs:
+
+  1. `swift build -c release` (or `--debug`) against the host
+     package.
+  2. Lays out `LoupeHost.app/Contents/{MacOS,Frameworks,
+     Info.plist,PkgInfo}` from the SwiftPM output.
+  3. Copies `WebRTC.framework` from the SwiftPM artifact cache
+     into `Contents/Frameworks/`.
+  4. Runs `install_name_tool -add_rpath
+     @loader_path/../Frameworks` on the binary. Without this rpath
+     the SwiftPM-built binary would look for WebRTC in
+     `Contents/MacOS/WebRTC.framework/` and crash at launch with
+     "Library not loaded: @rpath/WebRTC.framework/WebRTC". The
+     install_name_tool step has to happen *before* codesign,
+     since modifying the binary invalidates the signature.
+  5. Generates Info.plist with sane defaults: bundle id
+     `app.loupe.host`, LSMinimumSystemVersion 13.0, NSPrincipalClass
+     NSApplication, NSHighResolutionCapable YES. Override via
+     `LOUPE_BUNDLE_ID=...` and `LOUPE_VERSION=...` env vars.
+  6. Codesigns: ad-hoc by default (so the bundle is launchable on
+     the build machine). Pass `--sign-id "Developer ID
+     Application: ..."` to get a release-quality signed bundle
+     ready for `xcrun notarytool` and DMG distribution.
+  7. Optional `--dmg` builds a `Loupe.dmg` next to the bundle
+     that drags `LoupeHost.app` onto an `Applications` symlink.
+
+Verified: a freshly built bundle launched via `open`, the
+SwiftUI onboarding wizard appeared as a window named "Loupe",
+and the system asked for Screen Recording permission through
+the normal TCC flow.
+
 ### Sprint 8: macOS Host library split + sprint 7 live deploy (2026-06-22)
 
 Two commits that finish what Sprint 7 started:
