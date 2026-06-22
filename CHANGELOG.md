@@ -213,6 +213,38 @@ Known follow-ups (deferred):
   * Library split for `swift test` on the host — done in Sprint 8,
     see below.
 
+### Sprint 11: macOS .app icon (Loupe brand mark) (2026-06-22)
+
+Adds a real app icon to the Loupe host bundle, generated
+automatically as part of `scripts/build-host-app.sh`.
+
+What ships:
+
+  * `scripts/build-host-icon.py` (Pillow-only) draws a 1024x1024
+    master PNG that mirrors the website's brand mark
+    (loupe-signaling/site/index.html `.brand-mark` SVG): a
+    stroked turquoise circle on dark indigo, with a handle line
+    and a faint crosshair inside the lens. The loupe is
+    centred by the *lens* (not the bounding box), which is the
+    macOS convention for off-axis icons: the part the user
+    "looks at" is the focal point, the handle is allowed to
+    extend into the corner.
+  * `scripts/build-host-app.sh` runs the Python script, then
+    `sips` to produce the 10 retina + non-retina PNG sizes
+    (16, 32, 64, 128, 256, 512, 1024), then `iconutil` to
+    package them into `AppIcon.icns`. The Info.plist now has
+    `CFBundleIconFile = AppIcon`. No additional runtime
+    dependencies (Pillow is the only requirement and is
+    pre-installed in the Hermes build environment).
+  * Bundle now carries `Contents/Resources/AppIcon.icns`
+    (~116 KB) and shows up correctly in the Dock with the
+    macOS squircle mask applied automatically.
+
+Verified: `bash scripts/build-host-app.sh` -> `open
+LoupeHost.app` -> the Dock icon is a dark-indigo rounded
+square with a turquoise magnifying glass. Wizard window
+opens, TCC asks for Screen Recording.
+
 ### Sprint 9: macOS .app bundle generation script (2026-06-22)
 
 Closes the "Library-Split sprint 7 follow-up" item: the host can

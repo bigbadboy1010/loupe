@@ -125,6 +125,36 @@ if [[ -n "$WEBRTC_FRAMEWORK" ]]; then
     rsync -a --delete "$WEBRTC_FRAMEWORK/" "$APP_BUNDLE/Contents/Frameworks/WebRTC.framework/"
 fi
 
+# Sprint 11: build the AppIcon.icns from the master PNG. We do this
+# before generating Info.plist so the plist can include
+# CFBundleIconFile pointing at it.
+ICON_DIR="$BUILD_DIR/host-app-icon"
+if [[ -f "$REPO_ROOT/scripts/build-host-icon.py" ]]; then
+  echo "==> generating AppIcon.icns (sprint 11)"
+  rm -rf "$ICON_DIR"
+  python3 "$REPO_ROOT/scripts/build-host-icon.py" --out-dir "$ICON_DIR" --size 1024
+  ICONSET="$ICON_DIR/AppIcon.iconset"
+  rm -rf "$ICONSET" && mkdir -p "$ICONSET"
+  for entry in \
+      "16:icon_16x16.png" \
+      "32:icon_16x16@2x.png" \
+      "32:icon_32x32.png" \
+      "64:icon_32x32@2x.png" \
+      "128:icon_128x128.png" \
+      "256:icon_128x128@2x.png" \
+      "256:icon_256x256.png" \
+      "512:icon_256x256@2x.png" \
+      "512:icon_512x512.png"; do
+    px="${entry%%:*}"
+    name="${entry#*:}"
+    sips -z "$px" "$px" "$ICON_DIR/icon_1024.png" --out "$ICONSET/$name" >/dev/null
+  done
+  cp "$ICON_DIR/icon_1024.png" "$ICONSET/icon_512x512@2x.png"
+  /usr/bin/iconutil --convert icns "$ICONSET" --output "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+else
+  echo "warning: scripts/build-host-icon.py not found; bundle will be icon-less."
+fi
+
 cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -154,6 +184,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
     <false/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
