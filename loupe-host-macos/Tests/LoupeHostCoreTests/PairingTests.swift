@@ -1,6 +1,6 @@
 import XCTest
 import CryptoKit
-@testable import LoupeHostKit
+@testable import LoupeHostCore
 
 final class PairingTests: XCTestCase {
 

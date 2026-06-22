@@ -170,6 +170,80 @@ blog post or a status-page buried section.
 
 No code or protocol behaviour changed in this addition.
 
+### Sprint 7: macOS Host SwiftUI onboarding wizard (2026-06-22)
+
+Replaces the print-only CLI permission flow with a real SwiftUI
+onboarding wizard for the macOS host. Behaviour change for end
+users only — the wire protocol, signaling server, and iOS
+controller are unchanged.
+
+What you see now when you launch `LoupeHost.app` from Finder:
+
+  * A welcome step that explains what the host does, why the two
+    permissions are needed, and the E2E privacy guarantee.
+  * A step-by-step walkthrough of macOS Screen Recording and
+    Accessibility grants, with concrete instructions ("System
+    Settings -> Privacy & Security -> Screen Recording -> enable
+    Loupe") and a 'Systemeinstellungen oeffnen' button on each step.
+  * A live status poller (2-second interval) that detects when the
+    user has flipped the toggle in System Settings and advances
+    the wizard automatically.
+  * A 'Bereit' surface that loads the keychain-stored device
+    identity, mints a PairingPayload, and renders the QR code so
+    the user can scan it with the iPhone controller without
+    reaching for the terminal.
+
+Two paths share one executable: bundled launch (.app from
+Finder / `open`) dispatches to SwiftUI; CLI launch
+(`swift run LoupeHost sessionId signalingURL` or any launch
+without `Bundle.main.bundleIdentifier`) keeps the original
+stderr-printed diagnostic flow unchanged.
+
+Also closes a small loose end from sprint 5: the
+`PeerConnection` protocol now has `setPeerPublicKey(base64URL:)`
+and `NullPeerConnection` provides a matching stub, so the host
+side of the strict-mode wiring compiles alongside the controller
+side.
+
+Known follow-ups (deferred):
+
+  * `.app` bundle generation script (Info.plist, packaging). Today
+    `swift build` produces a CLI binary; the installer workflow
+    needs a small wrapper that puts it into `LoupeHost.app`.
+  * Library split for `swift test` on the host — done in Sprint 8,
+    see below.
+
+### Sprint 8: macOS Host library split + sprint 7 live deploy (2026-06-22)
+
+Two commits that finish what Sprint 7 started:
+
+  1. Sprint 7 live deploy. The status page now lists the new
+     "Onboarding" entry, and `/healthz` reports
+     `v0.4.0+2bf6b78`. Coturn stayed Up throughout the swap.
+  2. Sprint 8: same library split that Sprint A did for the
+     controller, applied to the host. `LoupeHostKit` (single
+     library, pulled WebRTC transitively) is replaced by
+     `LoupeHostCore` (no WebRTC), `LoupeHostWebRTC` (libwebrtc
+     PeerConnection impl only), and the existing executable
+     `LoupeHost` target (CLI + bundled app share the binary).
+     `swift test` now runs 16/16 green against `LoupeHostCore`
+     alone — InputEventTests 4, PairingTests 7,
+     SignalingMessageTests 5. Same end state as Sprint A on
+     the controller side: code history preserved as renames,
+     the SwiftPM test target no longer transitively links
+     `WebRTC.framework`, and the app executable is unchanged
+     in behaviour.
+
+### Sprint 6: Production container Node 20 -> 24 (2026-06-22)
+
+Brings the production Docker image up to the same Node 24 LTS
+the CI workflow already uses. Risk was low: production deps
+(fastify, @fastify/websocket, pino, zod) are pure-JS with no
+native bindings. Coturn is a separate container, untouched.
+Verified live: container started on Node v24.17.0 with no
+signalling outage, Coturn stayed Up throughout the swap. Healthz
+returned the expected minimal payload immediately.
+
 ### Sprint 5: DTLS-fingerprint binding enforced end-to-end (2026-06-21)
 
 ADR-003 (decision 4) is now **enforced**, not just implemented. The

@@ -1,6 +1,6 @@
 import Foundation
 import CoreMedia
-import LoupeHostKit
+import LoupeHostCore
 
 /// A null-object ``PeerConnection`` used to bring up and exercise the host
 /// pipeline (capture → encode → signaling) before the libwebrtc binding lands.

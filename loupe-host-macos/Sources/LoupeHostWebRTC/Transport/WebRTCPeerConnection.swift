@@ -3,6 +3,7 @@ import Foundation
 import CoreMedia
 import CoreVideo
 import WebRTC
+import LoupeHostCore
 
 /// libwebrtc-backed ``PeerConnection`` for the macOS host (see ADR-002).
 ///

@@ -1,7 +1,7 @@
 #if canImport(SwiftUI) && canImport(AppKit)
 import SwiftUI
 import AppKit
-import LoupeHostKit
+import LoupeHostCore
 
 // SwiftUI app-shell for the Loupe macOS host. Used when the host is launched
 /// as a `.app` bundle (the default for the TestFlight-style distribution).

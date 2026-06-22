@@ -27,7 +27,7 @@
 
 import Foundation
 import CoreGraphics
-import LoupeHostKit
+import LoupeHostCore
 
 private enum HostDefaults {
     static let sessionId = "loupe-dev-session"

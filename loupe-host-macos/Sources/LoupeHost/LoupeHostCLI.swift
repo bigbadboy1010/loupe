@@ -10,7 +10,8 @@
 
 import Foundation
 import CoreGraphics
-import LoupeHostKit
+import LoupeHostCore
+import LoupeHostWebRTC
 
 #if canImport(ImageIO) && canImport(UniformTypeIdentifiers)
 import ImageIO

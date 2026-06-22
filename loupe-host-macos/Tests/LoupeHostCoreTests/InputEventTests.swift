@@ -1,5 +1,5 @@
 import XCTest
-@testable import LoupeHostKit
+@testable import LoupeHostCore
 
 final class InputEventTests: XCTestCase {
 
