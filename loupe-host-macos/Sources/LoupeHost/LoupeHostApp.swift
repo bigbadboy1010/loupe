@@ -91,7 +91,7 @@ struct RootView: View {
 
 struct ReadyView: View {
     @EnvironmentObject var model: AppModel
-    @State private var sessionId: String = "loupe-dev-session"
+    @State private var sessionId: String = "loupe-beta-session"
     @State private var signalingURL: String = "wss://signaling.theloupe.team/ws"
     @State private var pairing: PairingView?
     @State private var isStarting = false

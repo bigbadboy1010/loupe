@@ -26,7 +26,7 @@ Ausreichend:
 | Healthcheck | `https://theloupe.team/healthz` |
 | WebSocket | `wss://signaling.theloupe.team/ws` |
 | STUN/TURN | `signaling.theloupe.team:3478` |
-| Session | `loupe-dev-session` |
+| Session | `loupe-beta-session` |
 
 ## Host-Sollwerte
 
@@ -38,7 +38,7 @@ Pairing token: ...
 Pairing QR PNG: ...
 Transport: libwebrtc
 [LoupeHost] signaling connect requested
-[LoupeHost] join sent session=loupe-dev-session
+[LoupeHost] join sent session=loupe-beta-session
 [LoupeHost] turn-cred requested
 [LoupeHost] turn-cred received servers=3 ttl=3600
 [LoupeHost] screen capture started

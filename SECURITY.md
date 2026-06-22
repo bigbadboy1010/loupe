@@ -9,12 +9,43 @@ and the distribution channels.
 
 ## Supported versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| v3.8.x  | ✅ Active          |
-| v3.6.x  | ✅ Stable          |
-| v3.5.x  | ⚠️ Critical fixes only |
-| < v3.5  | ❌ End of life     |
+The Loupe project ships three independently versioned artefacts. The
+canonical public release identifiers are kept in sync with
+[`docs/CURRENT-ENDPOINTS.md`](docs/CURRENT-ENDPOINTS.md).
+
+### iOS / iPadOS Controller (`LoupeControllerApp`, bundle id `org.francois.loupe.controller`)
+
+Distributed via [TestFlight](https://testflight.apple.com/join/wsJeRw1M).
+
+| Version          | Supported                |
+| ---------------- | ------------------------ |
+| v3.10.x          | ✅ Active (current beta) |
+| v3.8.x           | ✅ Active                |
+| v3.6.x           | ⚠️ Critical fixes only   |
+| v3.5.x           | ⚠️ Critical fixes only   |
+| < v3.5           | ❌ End of life           |
+
+### macOS Host (`LoupeHost`)
+
+Distributed via [GitHub Releases](https://github.com/bigbadboy1010/loupe/releases)
+as a Developer-ID signed + Apple-notarized DMG.
+
+| Version | Supported                |
+| ------- | ------------------------ |
+| v0.2.x  | ✅ Active (current)      |
+| v0.1.x  | ⚠️ Critical fixes only   |
+| < v0.1  | ❌ End of life           |
+
+### Signaling server (`loupe-signaling`)
+
+Hosted at `https://theloupe.team/`. Source-available; the on-host
+deployment is patched in place. The reported build identifier is the
+canonical version string (e.g. `v0.4.0+<git-sha>` shown by `/healthz`).
+
+| Build        | Supported                |
+| ------------ | ------------------------ |
+| v0.4.x       | ✅ Active (current)      |
+| v0.3.x       | ❌ Decommissioned        |
 
 ## Reporting a vulnerability
 

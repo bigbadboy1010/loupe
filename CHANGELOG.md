@@ -252,6 +252,93 @@ and uploaded to TestFlight with a single shell command. The
 script auto-increments `CURRENT_PROJECT_VERSION` so the
 "Redundant Binary Upload" error cannot occur.
 
+### Sprint 12: review-driven consistency fixes (2026-06-22)
+
+Resolves the two P0 contradictions and three P1 review
+findings from the 22 June 2026 reviewer pass.
+
+P0-1 (DTLS-fingerprint pinning status):
+  * The status page said "enforced", the pricing page said
+    "beta", and the known-issues page said "was implemented
+    but not enforced" in a "Recently resolved" block. Three
+    places, one decision. Pinned it to "enforced yes / shipped
+    on all tiers" everywhere:
+      - loupe-signaling/site/docs/pricing.html: DTLS row
+        changed from pill-beta to pill-shipped on Free /
+        Personal / Pro.
+      - loupe-signaling/site/known-issues.html: rewrote the
+        "Recently resolved" preamble to be an explicit
+        resolved-summary callout (not a list of issues that
+        look still-open) and rephrased the DTLS item to
+        "DTLS-fingerprint pinning enforced end-to-end"
+        instead of the "was implemented but not enforced"
+        construction that contradicted itself.
+
+P0-2 (legacy hostname decommission status):
+  * The status page said "decommissioned 21 June 2026,
+    DNS A record was removed at the registrar" while
+    docs/CURRENT-ENDPOINTS.md said the decommission was
+    "not complete" because of cached resolvers. The reviewer
+    was right to flag the contradiction. Verified live on
+    22 June 2026: `dig +short loupe.ddns.net @8.8.8.8` and
+    `dig +short loupe.app @8.8.8.8` both return NXDOMAIN
+    from Google, the server's local resolver, and the build
+    host. Caddy has the defensive 308-redirect block in
+    place. Rewrote the CURRENT-ENDPOINTS.md "Active server-
+    side hardening" section as "Server-side hardening
+    (2026-06-21, verified 2026-06-22)" with the live DNS
+    verification commands and a one-line summary: "The
+    decommission is complete."
+
+P1-3 (TestFlight description):
+  * The live TestFlight description is the placeholder
+    "Viewer für Iphone und Mac" — a UI action on
+    App Store Connect, not in the repo. Added a
+    drift-alert blockquote to
+    docs/TESTFLIGHT-LISTING-COPY.md that names the current
+    drift, gives the reviewer-recommended replacement, and
+    leaves a "last verified" line so future reviewers can
+    see when the next sync happened.
+
+P1-4 (acceptance session name):
+  * The default session id used in acceptance tests,
+    end-to-end tests, Xcode build instructions, the
+    openclaw next-prompt script, and two default-value
+    declarations in the host app source was
+    `loupe-dev-session` — wrong for public-beta docs.
+    Renamed to `loupe-beta-session` everywhere:
+      - loupe-host-macos/Sources/LoupeHost/main.swift
+      - loupe-host-macos/Sources/LoupeHost/LoupeHostApp.swift
+      - docs/iphone-test-acceptance.md
+      - docs/end-to-end-test.md
+      - docs/xcode-build.md
+      - docs/PRODUCTION-CONTROL-REPORT-v3.7.2.md
+      - docs/openclaw-next-prompt.md
+      - loupe-host-macos/README.md
+      - scripts/open-host-qr.sh
+    swift build + swift test still green (16/16).
+
+P1-5 (SECURITY.md supported versions):
+  * The version matrix only listed iOS-Controller
+    versions (v3.8.x, v3.6.x, v3.5.x). The current iOS
+    controller is v3.10.0-controllers and the project
+    also ships a macOS Host (v0.2.x) and a Signaling
+    server (v0.4.x) that were not represented.
+    Restructured SECURITY.md into three explicit tables
+    (iOS / macOS / signaling) with current and end-of-
+    life versions for each, all pointing back to
+    docs/CURRENT-ENDPOINTS.md as the single source of
+    truth.
+
+Verified:
+  * live DNS lookups against 8.8.8.8 for both legacy
+    hostnames return NXDOMAIN (22 June 2026, 13:31 UTC).
+  * swift build on loupe-host-macos: Build complete!
+    (9.47 sec).
+  * swift test on loupe-host-macos: 16/16 green
+    (InputEventTests 4, PairingTests 7,
+    SignalingMessageTests 5).
+
 ### Sprint 9: macOS .app bundle generation script (2026-06-22)
 
 Closes the "Library-Split sprint 7 follow-up" item: the host can

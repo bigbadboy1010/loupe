@@ -9,6 +9,15 @@
 > in the same change. Drift between the two is a public-beta trust
 > regression.
 
+> ⚠️ **Drift alert — last verified 22 June 2026.**
+> The current TestFlight description in App Store Connect reads
+> **"Viewer für Iphone und Mac"** which is a placeholder copy. The
+> reviewer-recommended replacement is in the **Description** block
+> below. The action item is in App Store Connect (UI), not in the
+> repo. Apply it, then update the verification line above.
+> Suggested copy: "Apple-native remote desktop controller for
+> Loupe. Use your iPhone or iPad to connect to a paired macOS host."
+
 **Bundle ID:** `org.francois.loupe.controller`
 **App Store Connect app name:** `LoupeControllerApp`
 **Primary locale:** `en-US`

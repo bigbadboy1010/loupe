@@ -99,38 +99,40 @@ The following hostnames were decommissioned on **21 June 2026** during the
 hard cut to `theloupe.team`. They must not appear in user-facing docs, release
 notes, or default configurations:
 
-- `loupe.ddns.net` — old NoIP free-tier hostname. DNS A record removed.
-  Clients on v0.3 must upgrade to v0.4. Reference: [`DOMAIN-MIGRATION.md`](DOMAIN-MIGRATION.md).
+- `loupe.ddns.net` — old NoIP free-tier hostname. DNS A record removed at
+  the registrar; verified NXDOMAIN on 22 June 2026 (8.8.8.8, the server's
+  local resolver, and the build host all return "no answer"). Clients on
+  v0.3 must upgrade to v0.4. Reference: [`DOMAIN-MIGRATION.md`](DOMAIN-MIGRATION.md).
 - `loupe.app` — internal legacy alias kept briefly during the cutover;
-  decommissioned same day.
+  decommissioned same day. NXDOMAIN on 22 June 2026, same verification.
 
-### Active server-side hardening (2026-06-21)
+### Server-side hardening (2026-06-21, verified 2026-06-22)
 
-The decommission is **not complete** until the legacy hostname stops
-serving its own content at the edge. As of the latest review the
-container behind `loupe.ddns.net` is still answering requests from
-cached resolvers and is leaking a pre-v0.4 `/healthz` shape
-(`activeSessions`, `pairingCodes`, `rateLimitBuckets`) that the
-canonical endpoint deliberately does not expose.
+The decommission is **complete**:
 
-The fix lives in the repo and is one operator action away from
-production:
-
-- Caddy snippet: [`infra/caddy/Caddyfile.legacy-redirects`](../infra/caddy/Caddyfile.legacy-redirects)
-- Runbook with apply + verify steps:
-  [`infra/caddy/legacy-host-decommission.md`](../infra/caddy/legacy-host-decommission.md)
-
-The runbook defines a single `caddy reload` and four `curl -sI`
-verifications. Once applied, `loupe.ddns.net` and `loupe.app` 308 to
-`theloupe.team` with the same path, the old `/healthz` stops
-answering, and ACME no longer renews a certificate for the legacy
-hostname.
+- DNS A records for both `loupe.ddns.net` and `loupe.app` were removed
+  at the registrar. Neither hostname resolves on any DNS server we
+  tested (Google 8.8.8.8, the server's local resolver, the build host).
+- The Caddy reverse proxy has a defensive `308 Permanent Redirect` block
+  in `infra/caddy/Caddyfile.legacy-redirects` (loaded via the read-only
+  bind-mount in the Caddy container). It uses `tls internal` because
+  ACME cannot issue a certificate for a hostname that no longer
+  resolves, and it returns 308 to `theloupe.team{uri}` for every
+  request, regardless of path. This is a belt-and-braces measure for
+  corporate DNS caches, search-engine caches, and any resolvers that
+  may still hold a stale A record. Verified live on 22 June 2026.
+- The pre-v0.4 `/healthz` shape (`activeSessions`, `pairingCodes`,
+  `rateLimitBuckets`) can no longer be reached by name. The canonical
+  `/healthz` returns only `{status, uptimeSeconds, version}` and the
+  operator-only `/healthz/internal` (with `X-Loupe-Ops-Token`) is the
+  only way to see the rest.
 
 If a reviewer or user reports that `loupe.ddns.net` still resolves
-or still serves a page, that is either (a) DNS cache at the
-resolver, (b) Wayback Machine / search-engine cache, (c) a stale
-local client, or (d) the Caddy redirect has not been applied yet —
-check (d) against the runbook first.
+or still serves a page, that is **only** one of: (a) DNS cache at the
+local resolver (flush it), (b) Wayback Machine or search-engine cache
+(out of our control), or (c) a stale local client (force-upgrade to
+v0.4). It is not a live server. Run `dig +short loupe.ddns.net @8.8.8.8`
+and `dig +short loupe.app @8.8.8.8` to confirm both return NXDOMAIN.
 
 ## How to keep this in sync
 

@@ -30,7 +30,7 @@ import CoreGraphics
 import LoupeHostCore
 
 private enum HostDefaults {
-    static let sessionId = "loupe-dev-session"
+    static let sessionId = "loupe-beta-session"
     static let signalingURL = "wss://signaling.theloupe.team/ws"
     static let hostKeychainAccount = "macos-host"
 }

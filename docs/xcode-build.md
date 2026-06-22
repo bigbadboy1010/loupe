@@ -32,7 +32,7 @@ In Xcode:
 Der Host ist bereits auf diese Defaults vorkonfiguriert:
 
 ```text
-sessionId:    loupe-dev-session
+sessionId:    loupe-beta-session
 signalingURL: wss://signaling.theloupe.team/ws
 ```
 
@@ -43,9 +43,9 @@ Beim Start schreibt der Host:
 ```text
 Host fingerprint: ...
 Pairing token: ...
-Pairing QR PNG: /var/folders/.../loupe-pairing-loupe-dev-session.png
+Pairing QR PNG: /var/folders/.../loupe-pairing-loupe-beta-session.png
 Transport: libwebrtc
-Starting Loupe host, session=loupe-dev-session, signaling=wss://signaling.theloupe.team/ws
+Starting Loupe host, session=loupe-beta-session, signaling=wss://signaling.theloupe.team/ws
 Host running. Press Ctrl-C to stop.
 ```
 

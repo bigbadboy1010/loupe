@@ -31,7 +31,7 @@ Expected:
 Manual WebSocket protocol smoke test:
 
 ```json
-{"type":"join","sessionId":"loupe-dev-session","peerId":"manual-test-host","role":"host"}
+{"type":"join","sessionId":"loupe-beta-session","peerId":"manual-test-host","role":"host"}
 ```
 
 Then:
@@ -90,7 +90,7 @@ Destination: `My Mac`
 
 The host uses production defaults without arguments:
 
-- Session ID: `loupe-dev-session`
+- Session ID: `loupe-beta-session`
 - Signaling URL: `wss://signaling.theloupe.team/ws`
 
 Expected console lines:
@@ -98,12 +98,12 @@ Expected console lines:
 ```text
 Host fingerprint: ...
 Pairing token: ...
-Pairing QR PNG: /var/folders/.../loupe-pairing-loupe-dev-session.png
+Pairing QR PNG: /var/folders/.../loupe-pairing-loupe-beta-session.png
 Transport: libwebrtc
-Starting Loupe host, session=loupe-dev-session, signaling=wss://signaling.theloupe.team/ws
+Starting Loupe host, session=loupe-beta-session, signaling=wss://signaling.theloupe.team/ws
 [LoupeHost] permissions screenRecording=true accessibility=true
 [LoupeHost] signaling connect requested
-[LoupeHost] join sent session=loupe-dev-session
+[LoupeHost] join sent session=loupe-beta-session
 [LoupeHost] turn-cred requested
 [LoupeHost] turn-cred received servers=3 ttl=3600
 [LoupeHost] screen capture started

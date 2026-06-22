@@ -66,7 +66,7 @@ open /Applications/LoupeHost.app
 Nach dem Start wird der QR-Code automatisch generiert:
 
 ```bash
-open /var/folders/hs/f17q1z495v96lhlh2j60_g9c0000gn/T/loupe-pairing-loupe-dev-session.png
+open /var/folders/hs/f17q1z495v96lhlh2j60_g9c0000gn/T/loupe-pairing-loupe-beta-session.png
 ```
 
 ---
@@ -76,7 +76,7 @@ open /var/folders/hs/f17q1z495v96lhlh2j60_g9c0000gn/T/loupe-pairing-loupe-dev-se
 ```
 [LoupeHost] permissions screenRecording=true accessibility=true
 [LoupeHost] signaling connect requested
-[LoupeHost] join sent session=loupe-dev-session
+[LoupeHost] join sent session=loupe-beta-session
 [LoupeHost] joined as host
 [LoupeHost] turn-cred received servers=3 ttl=3600
 [LoupeHost] ice state=checking

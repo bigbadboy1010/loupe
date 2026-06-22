@@ -60,7 +60,7 @@ Vollzugriff-Input ist mit App-Store-Sandbox nicht möglich → Developer-ID-Sign
 `LoupeHost` ist in dieser ZIP bereits auf den abgenommenen Server vorkonfiguriert:
 
 ```text
-sessionId:    loupe-dev-session
+sessionId:    loupe-beta-session
 signalingURL: wss://signaling.theloupe.team/ws
 ```
 

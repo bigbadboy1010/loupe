@@ -51,7 +51,7 @@ pkill -f LoupeHost || true
 7. QR öffnen:
 
 ```bash
-./scripts/open-host-qr.sh loupe-dev-session
+./scripts/open-host-qr.sh loupe-beta-session
 ```
 
 8. QR scannen und verbinden.
