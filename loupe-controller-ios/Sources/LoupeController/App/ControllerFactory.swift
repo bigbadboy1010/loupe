@@ -1,4 +1,6 @@
 import Foundation
+import LoupeCore
+import LoupeWebRTC
 
 /// One-call wiring for an app target: builds the signaling client, the
 /// libwebrtc-backed peer connection (when the WebRTC package is resolved) and a

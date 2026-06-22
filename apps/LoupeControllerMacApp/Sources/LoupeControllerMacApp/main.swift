@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
-import LoupeControllerKit
+import LoupeController
 
 @main
 struct LoupeControllerMacApp: App {

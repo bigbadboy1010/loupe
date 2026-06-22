@@ -1,22 +1,19 @@
 import XCTest
-// We do NOT @testable import LoupeControllerKit here because the
-// library's Transport/ target transitively depends on WebRTC.framework,
-// which is not buildable on the test runner host (see DTLSPinningTests
-// for the same rationale). Instead, the test target compiles a sibling
-// copy of `Transport/SignalingMessages.swift` from
-// `Tests/LoupeControllerKitTests/Sources/`, so the wire-format tests
-// run against the real encoding logic in hermetic isolation. Keep the
-// two copies in sync when touching the protocol.
+@testable import LoupeCore
 
-/// Sprint 5: wire-format tests for the `publicKey` field on the controller's
-/// outbound signaling `join` message.
+/// Sprint 5 + A: wire-format tests for the `publicKey` field on the
+/// controller's outbound signaling `join` message.
 ///
 /// These tests cover the controller side of the protocol. The host's
 /// corresponding `peerJoined(publicKey:)` field lives in
 /// `loupe-host-macos/Sources/LoupeHostKit/Transport/SignalingMessages.swift`
-/// and is covered by that target's own build (see xcodebuild run during
-// the sprint 5 sign-off). The server-side roundtrip is covered by
-/// `loupe-signaling/test/smoke.ts`.
+/// and is covered by that target's own build. The server-side
+/// roundtrip is covered by `loupe-signaling/test/smoke.ts`.
+///
+/// Sprint A: the test target now depends only on LoupeCore (no
+/// WebRTC.framework), so the previous sibling-copy workaround for
+/// SignalingMessages.swift is no longer needed and the canonical
+/// type from LoupeCore is used directly.
 final class SignalingMessagesTests: XCTestCase {
 
     // MARK: OutboundSignal.join encoding (controller side)

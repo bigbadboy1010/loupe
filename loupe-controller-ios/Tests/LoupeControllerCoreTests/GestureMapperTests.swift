@@ -1,6 +1,6 @@
 import XCTest
 import CoreGraphics
-@testable import LoupeControllerKit
+@testable import LoupeCore
 
 final class GestureMapperTests: XCTestCase {
 

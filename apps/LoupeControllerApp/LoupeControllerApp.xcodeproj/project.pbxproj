@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* LoupeControllerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* LoupeControllerApp.swift */; };
 		A10000000000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* Assets.xcassets */; };
-		A10000000000000000000005 /* LoupeControllerKit in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000006 /* LoupeControllerKit */; };
+		A10000000000000000000005 /* LoupeController in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000006 /* LoupeController */; };
 		A10000000000000000000020 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* UIKit.framework */; };
 		A10000000000000000000022 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* SwiftUI.framework */; };
 		A10000000000000000000024 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000025 /* UniformTypeIdentifiers.framework */; };
@@ -44,7 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000005 /* LoupeControllerKit in Frameworks */,
+				A10000000000000000000005 /* LoupeController in Frameworks */,
 				A10000000000000000000020 /* UIKit.framework in Frameworks */,
 				A10000000000000000000022 /* SwiftUI.framework in Frameworks */,
 				A10000000000000000000024 /* UniformTypeIdentifiers.framework in Frameworks */,
@@ -110,7 +110,7 @@
 			);
 			name = LoupeControllerApp;
 			packageProductDependencies = (
-				A10000000000000000000006 /* LoupeControllerKit */,
+				A10000000000000000000006 /* LoupeController */,
 			);
 			productName = LoupeControllerApp;
 			productReference = A10000000000000000000007 /* LoupeControllerApp.app */;
@@ -448,10 +448,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A10000000000000000000006 /* LoupeControllerKit */ = {
+		A10000000000000000000006 /* LoupeController */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A10000000000000000000012 /* XCLocalSwiftPackageReference "../../loupe-controller-ios" */;
-			productName = LoupeControllerKit;
+			productName = LoupeController;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

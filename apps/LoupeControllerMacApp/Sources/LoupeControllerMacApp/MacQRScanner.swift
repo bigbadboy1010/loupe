@@ -26,7 +26,7 @@ protocol MacQRScannerDelegate: AnyObject {
 }
 
 /// NSView-backed AVCaptureSession wrapper. Same API shape as the iOS
-/// `QRScannerViewController` (in LoupeControllerKit) so callers can use
+/// `QRScannerViewController` (in LoupeController) so callers can use
 /// either interchangeably.
 final class MacQRScannerView: NSView, AVCaptureMetadataOutputObjectsDelegate {
     weak var delegate: MacQRScannerDelegate?

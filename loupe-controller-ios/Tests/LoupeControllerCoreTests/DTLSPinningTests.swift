@@ -1,12 +1,14 @@
 import XCTest
 import CryptoKit
-// Note: we do NOT @testable import LoupeControllerKit here because the
-// controller's test target transitively depends on WebRTC.framework,
-// which is not buildable on the test runner host. The pieces we are
-// testing (DTLSPinning, DeviceIdentity, Base64URL) live in the
-// `Pairing` subdirectory and are duplicated as plain files into the
-// test target via the test target's `path:`. This is intentional and
-// mirrors how the macOS and iOS app test targets are structured.
+@testable import LoupeCore
+// Note: the historical rationale of this file said we deliberately did
+// NOT @testable import the controller's library target because the
+// library transitively depended on WebRTC.framework, which is not
+// buildable on the macOS test runner host. Sprint A splits the
+// library into LoupeCore (no WebRTC) + LoupeWebRTC + LoupeController,
+// and the test target now depends on LoupeCore only. The
+// `DTLSPinning`, `DeviceIdentity`, and `Base64URL` types now reach
+// the tests via the proper import, not via duplicated sibling files.
 
 /// Tests for the DTLS-fingerprint binding protocol (ADR-003, decision 4).
 ///

@@ -16,7 +16,7 @@ let package = Package(
         .executableTarget(
             name: "LoupeControllerMacApp",
             dependencies: [
-                .product(name: "LoupeControllerKit", package: "loupe-controller-ios")
+                .product(name: "LoupeController", package: "loupe-controller-ios")
             ],
             path: "Sources/LoupeControllerMacApp",
             linkerSettings: [

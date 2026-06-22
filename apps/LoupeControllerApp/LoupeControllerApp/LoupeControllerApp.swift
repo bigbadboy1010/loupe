@@ -5,7 +5,7 @@ import UIKit
 #if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
 #endif
-import LoupeControllerKit
+import LoupeController
 
 @main
 struct LoupeControllerApp: App {

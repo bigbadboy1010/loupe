@@ -2,6 +2,7 @@
 import Foundation
 import CoreVideo
 import WebRTC
+import LoupeCore
 
 /// libwebrtc-backed ``PeerConnection`` for the controller (see ADR-002).
 ///
