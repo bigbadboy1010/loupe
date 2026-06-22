@@ -245,6 +245,13 @@ LoupeHost.app` -> the Dock icon is a dark-indigo rounded
 square with a turquoise magnifying glass. Wizard window
 opens, TCC asks for Screen Recording.
 
+Bonus (same session, sibling agent): `a569c1b` adds
+`scripts/build-and-upload-testflight.sh` + an
+`ExportOptions.plist` so the iOS controller can be archived
+and uploaded to TestFlight with a single shell command. The
+script auto-increments `CURRENT_PROJECT_VERSION` so the
+"Redundant Binary Upload" error cannot occur.
+
 ### Sprint 9: macOS .app bundle generation script (2026-06-22)
 
 Closes the "Library-Split sprint 7 follow-up" item: the host can
