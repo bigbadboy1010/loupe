@@ -44,6 +44,12 @@ public protocol PeerConnection: AnyObject, Sendable {
     /// Configures STUN/TURN servers before negotiation.
     func setIceServers(_ servers: [IceServer])
 
+    /// Sprint 5: install the controller's long-lived Ed25519 publicKey so the
+    /// host can verify the controller's DTLS-fingerprint pinning signature.
+    /// Must be called before ICE reaches `connected`; after that point it is
+    /// too late to arm strict-mode enforcement (ADR-003 decision 4).
+    func setPeerPublicKey(base64URL: String)
+
     /// Pushes an encoded video frame onto the outbound track (encoded path only).
     func enqueueVideo(_ data: Data, isKeyframe: Bool, presentationTime: CMTime)
 

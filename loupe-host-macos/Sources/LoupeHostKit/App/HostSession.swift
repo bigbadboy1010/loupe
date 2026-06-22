@@ -232,7 +232,7 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
             // behavior: a controller that does not advertise a publicKey
             // is too old to participate in pinning.
             if let publicKey {
-                peer?.setPeerPublicKey(base64URL: publicKey)
+                peer.setPeerPublicKey(base64URL: publicKey)
                 log("DTLS-pinning armed: peer public key installed (len=\(publicKey.count))")
             } else {
                 log("DTLS-pinning NOT armed: controller did not advertise a publicKey on join")

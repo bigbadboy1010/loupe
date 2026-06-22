@@ -25,6 +25,12 @@ final class NullPeerConnection: PeerConnection, @unchecked Sendable {
         FileHandle.standardError.write(Data("[peer] iceServers=\(servers.count)\n".utf8))
     }
 
+    /// Sprint 5 stub. The null transport has no WebRTC layer, so there is
+    /// nothing to verify against; we just log and return.
+    func setPeerPublicKey(base64URL: String) {
+        FileHandle.standardError.write(Data("[peer] peerPublicKey(len=\(base64URL.count)) ignored by null transport\n".utf8))
+    }
+
     func enqueueVideo(_ data: Data, isKeyframe: Bool, presentationTime: CMTime) {
         frameCount += 1
         onVideoFrameForwarded?(frameCount)
