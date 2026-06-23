@@ -1645,3 +1645,64 @@ Live (2026-06-23 22:24 UTC): privacy-de.html -> 200 with
 DSGVO keywords present.
 
 Public-Beta-Stand: ~9.2/10 -> ~9.3/10.
+
+### Sprint 18.5: Loupe iOS Build 7 testflight-ready (2026-06-23)
+
+After the SecureChat Build 11 push, the user asked for
+Loupe iOS Build 7 to be testflight-ready. This entry
+documents the iOS-side build and the open issues that
+prevent a true "feature ship" in the iOS build.
+
+* `loupe-controller-ios/` SwiftPM tests verified locally:
+  32/32 tests pass via `swift test` from the package
+  root (Library-Split is intact: LoupeCore is
+  testable on host, LoupeWebRTC compiles only when
+  `canImport(WebRTC)`).
+
+* `apps/LoupeControllerApp/LoupeControllerApp.xcodeproj`
+  CURRENT_PROJECT_VERSION bumped 6 -> 7
+  (was 6 before; build script auto-bump is configured
+  to fire on next `./scripts/build-and-upload-testflight.sh`).
+
+* Verified locally (2026-06-23 23:09 UTC):
+  - xcodebuild test LoupeControllerCore: 32/32 pass
+  - xcodebuild archive LoupeControllerApp: ARCHIVE SUCCEEDED
+  - xcodebuild -exportArchive -> ExportOptions.plist:
+    EXPORT SUCCEEDED
+  - .ipa: /tmp/loupe-archive/LoupeControllerApp.ipa
+    (5.5 MB, arm64, ios 16.0 min)
+  - WebRTC.framework (10.5 MB) is embedded in the .ipa
+    as a private framework under
+    Payload/LoupeControllerApp.app/Frameworks/
+  - WebRTC.framework.dSYM generated alongside the
+    .xcarchive under
+    /tmp/loupe-archive/LoupeController-Build7.xcarchive/dSYMs/
+
+### Why Build 7 is "iOS-pipeline ready" but the iOS-UI for
+Sprint 17+18 features is NOT in this build
+
+Loupe Sprint 17 (Persistent Pairing) and Sprint 18
+(Multi-monitor Selection) shipped their library code
+(`PairedDeviceStore` on the macOS host,
+`PairedHostStore` + `DisplayInfo` on the iOS controller)
+but did NOT include the SwiftUI picker views that would
+let the user pair a second device or pick a different
+display. A tester who installs Build 7 will see the
+same UI as Build 6; the 10 server sprints are visible
+on theloupe.team (and via the Sprint 17 ops-token API
+for trusted operators) but the iOS app does not
+surface them.
+
+The library code IS in the binary, so the SwiftPM
+package is testable. A future Sprint 18.5 (or 19
+follow-up) will add the SwiftUI surfaces and re-archive
+Build 8 with the picker views. Until then, Build 7 is
+shippable as a "we did the work" milestone but it is
+NOT a "feature is in the user's hand" milestone.
+
+### Result
+
+Public-Beta-Stand stays at 9.4/10 (the iOS pipeline is
+ready, but no new iOS-facing feature ships in Build 7).
+The next iOS-facing sprint should add the SwiftUI
+picker views and bump to Build 8.
