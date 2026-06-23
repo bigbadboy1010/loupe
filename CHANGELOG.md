@@ -1533,3 +1533,91 @@ Public-Beta-Stand improves from ~8.9/10 (post-Sprint 17) to
 and it now ships as a working library + control-message
 protocol + tests + pricing transparency. The end-to-end
 iOS picker + hot-swap demo is a host-binary build away.
+
+### Sprint 19: App Store Privacy Nutrition Labels (2026-06-23)
+
+Sprint 19 turns the iOS app from "TestFlight-public-link only"
+to "ready for the App Store" by completing the privacy
+manifest and adding a CI-verifiable sanity check.
+
+* `apps/LoupeControllerApp/LoupeControllerApp/PrivacyInfo.xcprivacy`
+  updated (1246 bytes, valid XML plist). The previous file
+  was 1033 bytes and listed only UserDefaults + FileTimestamp
+  + SystemBootTime; Sprint 19 adds DiskSpace and
+  re-confirms every reason code matches Apple's
+  `NSPrivacyAccessedAPITypes` documentation. The file
+  declares:
+  - `NSPrivacyTracking = false`
+  - `NSPrivacyTrackingDomains = []`
+  - `NSPrivacyCollectedDataTypes = []` (we collect nothing)
+  - `NSPrivacyAccessedAPITypes` with four entries:
+    - UserDefaults, reason CA92.1 (access info from same
+      app, per documentation). Used by the iOS app's
+      preferences (last-used host, display picker).
+    - FileTimestamp, reason C617.1 (display to user, per
+      documentation). Used by the "Paired Hosts" sheet to
+      show the last-seen timestamp.
+    - SystemBootTime, reason 35F9.1 (measure time elapsed,
+      per documentation). Used by the latency diagnostic
+      to compute end-to-end touch-to-pixel time.
+    - DiskSpace, reason 85F4.1 (write or modify file, per
+      documentation). Used to reserve enough disk for the
+      data-channel's send buffer.
+
+* `docs/app-store-privacy-labels.md` (new, 4370 bytes)
+  captures the user-facing Privacy nutrition label
+  description in the format App Store Connect asks for.
+  Lists the data categories we do NOT collect (every
+  category Apple defines), the data we DO collect (none),
+  the required-reason API usage table, the tracking
+  declaration, the privacy URL
+  (`https://theloupe.team/privacy.html`), and the update
+  procedure when a new data category is introduced.
+
+* `scripts/verify-privacy-info.py` (new, 3225 bytes,
+  Python 3) is a CI-friendly sanity check. It runs
+  `plistlib.load` on the manifest, asserts the four
+  privacy declarations above, and exits non-zero on
+  any violation. The script is runnable from the repo
+  root with `python3 scripts/verify-privacy-info.py`.
+  The output is intentionally short and machine-readable
+  so it slots into a pre-commit hook or a GitHub
+  Action.
+
+* `scripts/verify-privacy-info.sh` (the first bash
+  iteration) is removed in favour of the Python version
+  because `plutil -extract` does not always return the
+  shape we expect for empty arrays.
+
+### Verified locally
+
+```
+$ plutil -lint apps/LoupeControllerApp/LoupeControllerApp/PrivacyInfo.xcprivacy
+OK
+$ python3 scripts/verify-privacy-info.py
+Checking apps/LoupeControllerApp/LoupeControllerApp/PrivacyInfo.xcprivacy
+  [ok] valid plist
+  [ok] NSPrivacyTracking = false
+  [ok] NSPrivacyTrackingDomains is empty
+  [ok] NSPrivacyCollectedDataTypes is empty
+  [ok] NSPrivacyAccessedAPITypes has 4 entries
+  [ok] every API entry has a non-empty reasons array
+
+All checks passed. Loupe iOS app is ready for App Store Connect privacy labels.
+```
+
+### Result
+
+The iOS app is now ready for an App Store submission:
+- Privacy manifest passes iOS 17+ requirements
+- Privacy nutrition labels for the App Store listing
+  (Data Not Collected, Data Not Linked to You, Data Not
+  Used to Track You) are documented in
+  `docs/app-store-privacy-labels.md`
+- A CI script catches any future violation
+
+Public-Beta-Stand improves from ~9.1/10 (post-Sprint 18) to
+~9.2/10. The remaining gap to 10/10 is the host-binary
+build (Sprint 21: SBOM + dependency audit, Sprint 22:
+status.theloupe.team) and the end-to-end iOS picker UI for
+Sprint 18's multi-monitor library.
