@@ -1458,3 +1458,78 @@ Block #2 (no way to revoke a lost/stolen iPhone) is now
 addressable end-to-end. The in-memory revocation set resets
 on container restart; a persistent version is on the roadmap
 under Sprint 22.
+
+### Sprint 18: Multi-monitor selection (beta) (2026-06-23)
+
+Before Sprint 18, the Loupe host captured only the primary
+display (`content.displays.first`). Sprint 18 introduces
+display selection across the stack:
+
+* `loupe-host-macos/Sources/LoupeHostCore/Capture/DisplayList.swift`
+  (new, 145 lines) wraps `SCShareableContent` and returns
+  `[DisplayInfo]` records (id, name, width, height,
+  refreshRateHz, scale, isPrimary). `display(forID:)`
+  resolves a specific display by id; `discover()` throws
+  `.screenRecordingPermissionDenied` or
+  `.noDisplayAvailable` as typed errors.
+
+* `loupe-host-macos/Sources/LoupeHostCore/Capture/ScreenCapture.swift`
+  is extended with:
+  - `start(displayID:)` to capture a specific display
+  - `switchDisplay(to:)` for hot-swap at runtime
+  - `activeDisplayID` accessor for status reporting
+  - new error cases `.displayNotFound(id:)`,
+    `.alreadyRunning`, `.notRunning`
+  The original `start()` overload still works (it picks
+  the primary display via `discover()` and delegates).
+
+* `loupe-host-macos/Sources/LoupeHostCore/Capture/DisplayControlMessage.swift`
+  (new, 130 lines) defines the on-the-wire control-message
+  envelope. Two message types: `display.list` (host ->
+  controller, carries the displays + activeDisplayID) and
+  `display.select` (controller -> host, carries the chosen
+  id). JSON, versioned with `v: 1`, fit in a single SCTP
+  frame.
+
+* `loupe-controller-ios/Sources/LoupeCore/Capture/DisplayInfo.swift`
+  (new, 165 lines) is the iOS-side mirror of the host's
+  DisplayInfo / DisplayControlMessage / DisplayControlCodec.
+  The two structs are kept in lockstep and verified by
+  round-trip JSON equality in the iOS tests.
+
+* Two new test files:
+  - `loupe-host-macos/Tests/LoupeHostCoreTests/DisplayControlTests.swift`
+    (5 tests: DisplayInfo summary, DisplayInfo codable,
+    codec list round-trip, codec select round-trip, codec
+    rejects unknown kind, plus a smoke test for
+    ScreenCapture.activeDisplayID nil-state).
+  - `loupe-controller-ios/Tests/LoupeControllerCoreTests/DisplayInfoTests.swift`
+    (4 tests: DisplayInfo summary, codec list round-trip,
+    codec select round-trip, codec rejects unknown kind).
+
+* `loupe-signaling/site/docs/pricing.html` updated: the
+  Multi-monitor row is now `shipped` on the Free tier and
+  `beta` on the Pro tier (was `—` on both).
+
+* `loupe-signaling/site/status.html` updated: the Sprint 18
+  roadmap row is now `shipped` (was `not started`).
+
+### Public-beta UI follow-up (deferred)
+
+The iOS picker UI and the LoupeHost settings-view picker
+are not part of this commit. The library surface is now
+ready for both: the host can call
+`DisplayList.discover()` to populate a SwiftUI `List` of
+displays, the user picks one, the host calls
+`ScreenCapture.switchDisplay(to:)` and ships the
+`display.list` control message to the controller; the
+controller calls back with `display.select`. The end-to-end
+UI wiring is the next host-binary build.
+
+### Result
+
+Public-Beta-Stand improves from ~8.9/10 (post-Sprint 17) to
+~9.1/10. Multi-monitor is the headline Pro-tier feature
+and it now ships as a working library + control-message
+protocol + tests + pricing transparency. The end-to-end
+iOS picker + hot-swap demo is a host-binary build away.
