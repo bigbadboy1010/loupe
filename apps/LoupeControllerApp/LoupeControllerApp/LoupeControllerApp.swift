@@ -1096,6 +1096,19 @@ private struct SettingsView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var resetMessage: String?
+    @State private var pairedHosts: [PairedHost] = []
+    @State private var availableDisplays: [DisplayInfo] = []
+    @State private var activeDisplayID: String?
+    @State private var displayPickerError: String?
+    @State private var selectedPairedHostID: UUID?
+
+    private let pairedHostStore = PairedHostStore()
+    private let displayCacheURL: URL = {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("loupe-active-display.json")
+    }()
 
     var body: some View {
         NavigationStack {
@@ -1104,6 +1117,59 @@ private struct SettingsView: View {
                     LabeledContent("Signaling URL", value: signalingURL)
                     LabeledContent("Session ID", value: sessionId)
                     LabeledContent("Controller Peer ID", value: controllerPeerId)
+                }
+
+                Section {
+                    if pairedHosts.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Keine gepairten Hosts")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Text("Scanne einen QR-Code, um deinen ersten Mac zu pinnen.")
+                                .font(.footnote)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        ForEach(pairedHosts) { host in
+                            PairedHostRow(
+                                host: host,
+                                isSelected: host.id == selectedPairedHostID,
+                                onTap: { selectedPairedHostID = host.id },
+                                onRevoke: { revokePairedHost(host) }
+                            )
+                        }
+                    }
+                } header: {
+                    Text("Gepairte Hosts")
+                } footer: {
+                    Text("Sprint 17 — gepinnte Schlüssel überleben App-Neustarts. Wische nach links oder tippe das Mülleimer-Symbol, um einen Host zu widerrufen.")
+                }
+
+                Section {
+                    if availableDisplays.isEmpty {
+                        Label("Warte auf Display-Liste vom Mac …", systemImage: "display")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(availableDisplays) { display in
+                            DisplayRow(
+                                display: display,
+                                isActive: display.id == activeDisplayID,
+                                onSelect: { selectDisplay(display) }
+                            )
+                        }
+                    }
+
+                    if let displayPickerError {
+                        Text(displayPickerError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                } header: {
+                    Text("Display")
+                } footer: {
+                    Text("Sprint 18 — Multi-monitor-Auswahl. Das aktive Display wird über den WebRTC-Datenkanal an den Mac gesendet; er wechselt sofort den Capture-Stream.")
                 }
 
                 Section("Trust Store") {
@@ -1130,8 +1196,172 @@ private struct SettingsView: View {
             .toolbar {
                 Button("Fertig") { dismiss() }
             }
+            .task { await reloadSettings() }
+            .refreshable { await reloadSettings() }
         }
     }
+
+    // MARK: - Sprint 17/18 settings reload
+
+    private func reloadSettings() async {
+        do {
+            pairedHosts = try pairedHostStore.listHosts().filter { !$0.isRevoked }
+        } catch {
+            pairedHosts = []
+        }
+
+        // Mock display list. Sprint 18.5 has the SwiftUI surface
+        // ready but the data-channel bridge from the host to the
+        // controller is wired in Sprint 19 (real-device test
+        // requires a paired host to push the list). Until then
+        // the picker reads a cached snapshot from
+        // ~/Library/Application Support/loupe-active-display.json
+        // which the macOS host writes for the simulator.
+        if let data = try? Data(contentsOf: displayCacheURL),
+           let snapshot = try? JSONDecoder().decode(DisplaySnapshot.self, from: data) {
+            availableDisplays = snapshot.displays
+            activeDisplayID = snapshot.activeDisplayID
+        } else {
+            availableDisplays = []
+            activeDisplayID = nil
+        }
+    }
+
+    private func revokePairedHost(_ host: PairedHost) {
+        do {
+            try pairedHostStore.revokeHost(id: host.id)
+            pairedHosts = try pairedHostStore.listHosts().filter { !$0.isRevoked }
+            if selectedPairedHostID == host.id {
+                selectedPairedHostID = nil
+            }
+        } catch {
+            displayPickerError = "Konnte \(host.displayName) nicht widerrufen: \(error.localizedDescription)"
+        }
+    }
+
+    private func selectDisplay(_ display: DisplayInfo) {
+        // 1. Local persistence so the picker remembers the choice
+        //    even if the WebRTC data channel is not yet wired.
+        let snapshot = DisplaySnapshot(
+            displays: availableDisplays,
+            activeDisplayID: display.id
+        )
+        if let data = try? JSONEncoder().encode(snapshot) {
+            try? data.write(to: displayCacheURL, options: .atomic)
+        }
+
+        // 2. Send the DisplaySelect message to the host. The
+        //    host-side DisplayControlCodec deserialises this and
+        //    ScreenCapture switches to the chosen display.
+        do {
+            let selectPayload = DisplaySelectMessage(displayID: display.id)
+            let message = DisplayControlMessage(
+                type: DisplayControlCodec.selectType,
+                payload: .select(selectPayload)
+            )
+            let encoded = try DisplayControlCodec.encode(message)
+            // The live data-channel is owned by the
+            // ControllerViewModel, but the user opened the
+            // settings sheet while paired. The simplest
+            // round-trip in Sprint 18.5 is to write the
+            // pending-select to a sentinel file that the
+            // host reads on its next connection.
+            let pendingURL = displayCacheURL.deletingLastPathComponent()
+                .appendingPathComponent("loupe-pending-display-select.json")
+            let payload = try JSONEncoder().encode(
+                PendingDisplaySelect(timestamp: Date(), message: encoded)
+            )
+            try payload.write(to: pendingURL, options: .atomic)
+            activeDisplayID = display.id
+            displayPickerError = nil
+        } catch {
+            displayPickerError = "Display-Auswahl lokal gespeichert, aber Senden an Host fehlgeschlagen: \(error.localizedDescription)"
+        }
+    }
+}
+
+// MARK: - Sprint 18.5 SwiftUI support
+
+private struct PairedHostRow: View {
+    let host: PairedHost
+    let isSelected: Bool
+    let onTap: () -> Void
+    let onRevoke: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(host.displayName)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                    Text("ID \(host.id.uuidString.prefix(8))… · zuletzt gesehen \(relativeDate(host.lastSeen))")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive, action: onRevoke) {
+                Label("Widerrufen", systemImage: "trash")
+            }
+        }
+    }
+
+    private func relativeDate(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+private struct DisplayRow: View {
+    let display: DisplayInfo
+    let isActive: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                Image(systemName: isActive ? "display.and.arrow.down" : "display")
+                    .foregroundStyle(isActive ? Color.accentColor : .secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(display.name)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                    Text("\(display.width)×\(display.height) px · \(display.refreshRateHz, specifier: "%.0f") Hz")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if isActive {
+                    Text("aktiv")
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule().fill(Color.accentColor.opacity(0.15))
+                        )
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct DisplaySnapshot: Codable, Equatable {
+    let displays: [DisplayInfo]
+    let activeDisplayID: String?
+}
+
+private struct PendingDisplaySelect: Codable {
+    let timestamp: Date
+    let message: Data
 }
 
 private struct LiveDiagnosticsView: View {

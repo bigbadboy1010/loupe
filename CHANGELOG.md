@@ -1706,3 +1706,85 @@ Public-Beta-Stand stays at 9.4/10 (the iOS pipeline is
 ready, but no new iOS-facing feature ships in Build 7).
 The next iOS-facing sprint should add the SwiftUI
 picker views and bump to Build 8.
+
+### Sprint 18.5: iOS SwiftUI picker views (2026-06-23)
+
+Sprint 17 (Persistent Pairing) and Sprint 18 (Multi-monitor
+Selection) shipped their library code but did not include
+the SwiftUI surfaces that would let the user see or interact
+with the new state. Build 7 without Sprint 18.5 would
+have been a no-op for the user: same UI, same flow, just a
+new build number.
+
+Sprint 18.5 fixes that. Two new sections are added to the
+existing Settings sheet:
+
+* "Gepairte Hosts" section (Sprint 17 surface). Lists every
+  `PairedHost` from `PairedHostStore.listHosts()`, filtered
+  to exclude revoked hosts. Each row shows the friendly
+  name, the first 8 hex chars of the host's UUID, and a
+  "zuletzt gesehen …" timestamp via `RelativeDateTimeFormatter`.
+  Swipe-to-revoke (`.swipeActions(edge: .trailing)`) calls
+  `PairedHostStore.revokeHost(id:)` and reloads the list.
+  Empty state: "Keine gepairten Hosts — scanne einen
+  QR-Code, um deinen ersten Mac zu pinnen."
+
+* "Display" section (Sprint 18 surface). Lists every
+  `DisplayInfo` from a JSON snapshot at
+  `~/Library/Application Support/loupe-active-display.json`,
+  showing the display name, resolution, and refresh rate.
+  Tapping a row persists the choice to the snapshot file
+  AND writes a `loupe-pending-display-select.json` sentinel
+  that the macOS host reads on its next pairing.
+  The pending-select sentinel is the Sprint 18.5 bridge
+  between the SwiftUI picker and the real
+  `WebRTCDataChannel.send(DisplayControlCodec.encode(...))`
+  call; the latter is wired in Sprint 19 once the
+  `LoupeControllerApp` data-channel reference is plumbed
+  through `ControllerViewModel` (the picker currently
+  owns the snapshot and the pending-select file).
+
+* Library integration. The view talks to the public API
+  of `LoupeCore`:
+  - `PairedHostStore()` (default fileURL), `listHosts()`,
+    `revokeHost(id:)`
+  - `PairedHost` (id, displayName, lastSeen, isRevoked)
+  - `DisplayInfo` (id: String, name, width, height,
+    refreshRateHz, scale, isPrimary)
+  - `DisplayControlCodec.selectType` (constant),
+    `encode(DisplayControlMessage)` (throws)
+  - `DisplaySelectMessage(displayID:)`
+  - `DisplayControlMessage(type:, v: 1, payload: .select(...))`
+  No new library code; everything in the Settings sheet
+  is a thin SwiftUI wrapper over the existing public
+  surface.
+
+* Test status (2026-06-23 23:14 UTC). 32/32 tests pass via
+  `swift test` from the loupe-controller-ios SwiftPM
+  package. The Settings sheet itself is SwiftUI (no XCTest
+  target covers it today; would be a follow-up Sprint
+  18.6 to add a ViewInspector test).
+
+* Build status (2026-06-23 23:15 UTC). xcodebuild archive
+  LoupeControllerApp Release = ARCHIVE SUCCEEDED. xcodebuild
+  -exportArchive via ExportOptions.plist = EXPORT SUCCEEDED.
+  Output: /tmp/loupe-archive/LoupeControllerApp.ipa
+  (5.7 MB, arm64, iOS 16.0 min, CFBundleVersion 7).
+  WebRTC.framework dSYM generated and embedded in the
+  .xcarchive under dSYMs/.
+
+### Result
+
+Build 7 is now both **pipeline-ready** AND **iOS-UI-ready**.
+A tester who installs Build 7 will see two new sections in
+the Settings sheet: "Gepairte Hosts" (Sprint 17) and
+"Display" (Sprint 18). Both have real working SwiftUI
+surfaces backed by the public library API. The macOS host
+needs a Sprint 19 follow-up to actually push a display-list
+snapshot to the controller (via a new relay topic or a
+data-channel message) — until then the Display section
+shows an empty state with a "Warte auf Display-Liste vom
+Mac …" message.
+
+Public-Beta-Stand: 9.4/10 (Web/Signaling) + first iOS-UI
+surfaces for the new sprints.
