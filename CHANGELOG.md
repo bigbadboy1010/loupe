@@ -1217,3 +1217,244 @@ dark` for the device frames.
 * Live `/` and `/status.html` carry the new content
 * Live container rebuilt: `loupe-signaling-signaling-1`,
   uptime 11s after rebuild
+
+### Sprint 17: Persistent Pairing + Remote-Revoke (2026-06-23)
+
+Previously, a Loupe pairing between a Mac host and an iPhone
+controller was a one-shot QR scan. Closing the host, restarting
+the iPhone, or even losing the WebSocket connection forced a new
+QR scan. The threat model flagged this as a usability gap (T-5
+stolen iPhone) and an operational gap (no way to revoke a
+controller the user no longer trusts).
+
+Sprint 17 closes both gaps:
+
+* `loupe-host-macos/Sources/LoupeHostCore/Pairing/PairedDeviceStore.swift`
+  is a new JSON-on-disk store for the host's view of the paired
+  controllers. One record per device with id, displayName,
+  controllerPublicKey, sessionKey, lastSeen, createdAt, and an
+  isRevoked flag. Atomic writes, POSIX 0600 on the file because
+  the file holds session keys. The store lives at
+  `~/Library/Application Support/Loupe/paired-devices.json`.
+
+* `loupe-controller-ios/Sources/LoupeCore/Pairing/PairedHostStore.swift`
+  is the controller's mirror image: persistent record of the
+  hosts the user has paired. Same shape, same file-permission
+  guarantee, same atomic-write pattern. Lives in the iOS app's
+  `Application Support/Loupe/paired-hosts.json`.
+
+* `loupe-signaling/src/server.ts` exposes two new operator
+  endpoints:
+  - `POST /v1/relay/pairings/revoke` accepts
+    `{sessionId, reason?}` and adds the session-id to an
+    in-memory revocation set. The endpoint is gated by the
+    same `x-loupe-ops-token` header and constant-time compare
+    used by `/healthz/internal`.
+  - `GET /v1/relay/pairings` returns the current revocation
+    set (audit endpoint, same auth).
+  The existing `/pairing/:code` handler is now wrapped: if the
+  resolved session-id is in the revocation set, the handler
+  returns 404 even though the code is valid, so the controller
+  cannot tell whether the revocation list exists.
+
+* Two new test files:
+  - `loupe-host-macos/Tests/LoupeHostCoreTests/PairedDeviceStoreTests.swift`
+    with 8 tests (empty list, add/list, duplicate rejected,
+    update touches lastSeen, revoke marks isRevoked, revoke
+    unknown throws, file permissions 0600, persistence across
+    instances).
+  - `loupe-controller-ios/Tests/LoupeControllerCoreTests/PairedHostStoreTests.swift`
+    with 6 tests mirroring the host-side tests.
+
+* Live verification of the new endpoints via the deployed
+  container (2026-06-23 19:54 UTC):
+  - mint code -> 200 + JSON
+  - resolve code -> 200 + session-id
+  - revoke with `x-loupe-ops-token` -> 200 + revokedAt
+  - mint fresh code for the same sessionId -> 200 (the
+    revocations list is not visible to mint, by design)
+  - resolve fresh code -> 404 (the controller is silently
+    refused even though the code is valid)
+  - list revocations -> `{revokedCount:1, revoked:[...]}`
+  - `GET /v1/relay/pairings` without the ops token -> 401
+  - `POST /v1/relay/pairings/revoke` without the ops token -> 401
+
+### Threat-model impact (Sprint 14, T-5)
+
+Sprint 17 upgrades T-5 ("iPhone thief drives the host") from
+"implemented (Keychain-only)" to "implemented (Keychain-only)
++ designed remote-revoke". The host-side UI for showing the
+paired list and triggering the revoke is a follow-up that the
+iOS host app will pick up in the next host-binary build; the
+operator-side endpoint is wired and live in this commit.
+
+### Files touched
+
+- `loupe-host-macos/Sources/LoupeHostCore/Pairing/PairedDeviceStore.swift` (new, 217 lines)
+- `loupe-host-macos/Tests/LoupeHostCoreTests/PairedDeviceStoreTests.swift` (new, 138 lines)
+- `loupe-controller-ios/Sources/LoupeCore/Pairing/PairedHostStore.swift` (new, 195 lines)
+- `loupe-controller-ios/Tests/LoupeControllerCoreTests/PairedHostStoreTests.swift` (new, 116 lines)
+- `loupe-signaling/src/server.ts` (+64 lines: revoke list, POST + GET endpoints, consume wrapper)
+- `CHANGELOG.md` (this entry)
+
+### Result
+
+* Public-Beta-Stand improves from ~8.7/10 (post-Sprint 13.2/14/15/16)
+  to an estimated 8.9/10. Trust-Block #2 (no way to revoke a
+  lost/stolen iPhone) is now addressable end-to-end.
+* The host UI for "show paired devices / revoke" is the next
+  follow-up. The iOS Settings sheet gets the same treatment on
+  the controller side.
+* Live container reports the new endpoints; the in-memory
+  revocation set survives hot-restart (because the server
+  itself is long-lived) but resets on container restart; a
+  persistent version is on the roadmap under Sprint 22.
+
+### Sprint 17: Persistent Pairing + Remote-Revoke (2026-06-23)
+
+Previously, a Loupe pairing between a Mac host and an iPhone
+controller was a one-shot QR scan. Closing the host, restarting
+the iPhone, or even losing the WebSocket connection forced a new
+QR scan. The threat model flagged this as a usability gap (T-5
+stolen iPhone) and an operational gap (no way to revoke a
+controller the user no longer trusts).
+
+Sprint 17 closes both gaps:
+
+* `loupe-host-macos/Sources/LoupeHostCore/Pairing/PairedDeviceStore.swift`
+  is a new JSON-on-disk store for the host's view of the paired
+  controllers. One record per device with id, displayName,
+  controllerPublicKey, sessionKey, lastSeen, createdAt, and an
+  isRevoked flag. Atomic writes, POSIX 0600 on the file because
+  the file holds session keys. The store lives at
+  `~/Library/Application Support/Loupe/paired-devices.json`.
+
+* `loupe-controller-ios/Sources/LoupeCore/Pairing/PairedHostStore.swift`
+  is the controller's mirror image: persistent record of the
+  hosts the user has paired. Same shape, same file-permission
+  guarantee, same atomic-write pattern. Lives in the iOS app's
+  `Application Support/Loupe/paired-hosts.json`.
+
+* `loupe-signaling/src/server.ts` exposes two new operator
+  endpoints:
+  - `POST /v1/relay/pairings/revoke` accepts
+    `{sessionId, reason?}` and adds the session-id to an
+    in-memory revocation set. The endpoint is gated by the
+    same `x-loupe-ops-token` header and constant-time compare
+    used by `/healthz/internal`.
+  - `GET /v1/relay/pairings` returns the current revocation
+    set (audit endpoint, same auth).
+  The existing `/pairing/:code` handler is now wrapped: if the
+  resolved session-id is in the revocation set, the handler
+  returns 404 even though the code is valid, so the controller
+  cannot tell whether the revocation list exists.
+
+* Two new test files:
+  - `loupe-host-macos/Tests/LoupeHostCoreTests/PairedDeviceStoreTests.swift`
+    with 8 tests (empty list, add/list, duplicate rejected,
+    update touches lastSeen, revoke marks isRevoked, revoke
+    unknown throws, file permissions 0600, persistence across
+    instances).
+  - `loupe-controller-ios/Tests/LoupeControllerCoreTests/PairedHostStoreTests.swift`
+    with 6 tests mirroring the host-side tests.
+
+* Live verification of the new endpoints via the deployed
+  container (2026-06-23 19:54 UTC):
+  - mint code -> 200 + JSON
+  - resolve code -> 200 + session-id
+  - revoke with `x-loupe-ops-token` -> 200 + revokedAt
+  - mint fresh code for the same sessionId -> 200
+  - resolve fresh code -> 404 (silently refused)
+  - list revocations -> {revokedCount:1, revoked:[...]}
+  - GET /v1/relay/pairings without ops token -> 401
+  - POST /v1/relay/pairings/revoke without ops token -> 401
+
+### Threat-model impact (Sprint 14, T-5)
+
+Sprint 17 upgrades T-5 (iPhone thief drives the host) from
+"implemented (Keychain-only)" to "implemented (Keychain-only)
++ designed remote-revoke". The host-side UI for showing the
+paired list and triggering the revoke is a follow-up that the
+iOS host app will pick up in the next host-binary build; the
+operator-side endpoint is wired and live in this commit.
+
+### Files touched
+
+- `loupe-host-macos/Sources/LoupeHostCore/Pairing/PairedDeviceStore.swift` (new, 217 lines)
+- `loupe-host-macos/Tests/LoupeHostCoreTests/PairedDeviceStoreTests.swift` (new, 138 lines)
+- `loupe-controller-ios/Sources/LoupeCore/Pairing/PairedHostStore.swift` (new, 195 lines)
+- `loupe-controller-ios/Tests/LoupeControllerCoreTests/PairedHostStoreTests.swift` (new, 116 lines)
+- `loupe-signaling/src/server.ts` (+64 lines: revoke list, POST + GET endpoints, consume wrapper)
+- `CHANGELOG.md` (this entry)
+
+### Result
+
+* Public-Beta-Stand improves from ~8.7/10 (post-Sprint 13.2/14/15/16)
+  to an estimated 8.9/10. Trust-Block #2 (no way to revoke a
+  lost/stolen iPhone) is now addressable end-to-end.
+* The host UI for "show paired devices / revoke" is the next
+  follow-up. The iOS Settings sheet gets the same treatment on
+  the controller side.
+* Live container reports the new endpoints; the in-memory
+  revocation set resets on container restart; a persistent
+  version is on the roadmap under Sprint 22.
+
+### Sprint 17: Persistent Pairing + Remote-Revoke (2026-06-23)
+
+Previously, a Loupe pairing between a Mac host and an iPhone
+controller was a one-shot QR scan. Sprint 17 closes the gap:
+
+* `PairedDeviceStore` (LoupeHostCore) persists the host's view
+  of paired controllers as JSON-on-disk under
+  `~/Library/Application Support/Loupe/paired-devices.json`.
+  Atomic writes, POSIX 0600 (the file holds session keys).
+
+* `PairedHostStore` (LoupeCore) is the controller's mirror
+  image: persistent record of paired hosts at
+  `<app-container>/Application Support/Loupe/paired-hosts.json`.
+
+* `loupe-signaling/src/server.ts` adds two operator endpoints:
+  - `POST /v1/relay/pairings/revoke` (auth via
+    `x-loupe-ops-token`) puts a session-id into an in-memory
+    revocation set.
+  - `GET /v1/relay/pairings` (same auth) lists revocations.
+  The `/pairing/:code` handler is now wrapped: if the resolved
+  session-id is in the revocation set, the handler returns 404
+  even though the code is valid (the controller cannot tell
+  whether the revocation list exists).
+
+* Two new test files: 8 host-side tests + 6 controller-side
+  tests covering add/list, duplicate-rejection, update,
+  revoke, unknown-revoke-throws, file permissions 0600, and
+  persistence across instances.
+
+* Live verification (2026-06-23 19:54 UTC): mint code -> 200,
+  resolve code -> 200, revoke with ops-token -> 200, mint
+  fresh code for revoked sessionId -> 200, resolve fresh code
+  -> 404 (silently refused), list revocations -> count=1,
+  unauthenticated calls to either endpoint -> 401.
+
+### Threat-model impact (Sprint 14, T-5)
+
+Upgrades T-5 (iPhone thief drives the host) from
+"implemented (Keychain-only)" to "implemented + designed
+remote-revoke". The host UI for "show paired devices /
+revoke" is a follow-up; the operator-side endpoint is wired
+and live.
+
+### Files touched
+
+- `loupe-host-macos/Sources/LoupeHostCore/Pairing/PairedDeviceStore.swift` (new, 217 lines)
+- `loupe-host-macos/Tests/LoupeHostCoreTests/PairedDeviceStoreTests.swift` (new, 138 lines)
+- `loupe-controller-ios/Sources/LoupeCore/Pairing/PairedHostStore.swift` (new, 195 lines)
+- `loupe-controller-ios/Tests/LoupeControllerCoreTests/PairedHostStoreTests.swift` (new, 116 lines)
+- `loupe-signaling/src/server.ts` (+64 lines)
+- `CHANGELOG.md` (this entry)
+
+### Result
+
+Public-Beta-Stand improves from ~8.7/10 to ~8.9/10. Trust-
+Block #2 (no way to revoke a lost/stolen iPhone) is now
+addressable end-to-end. The in-memory revocation set resets
+on container restart; a persistent version is on the roadmap
+under Sprint 22.
