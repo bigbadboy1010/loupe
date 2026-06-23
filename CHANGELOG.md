@@ -1621,3 +1621,27 @@ Public-Beta-Stand improves from ~9.1/10 (post-Sprint 18) to
 build (Sprint 21: SBOM + dependency audit, Sprint 22:
 status.theloupe.team) and the end-to-end iOS picker UI for
 Sprint 18's multi-monitor library.
+
+### Sprint 24: Datenschutzerklaerung deutsch (2026-06-23)
+
+* loupe-signaling/site/privacy-de.html (new, 14245 bytes):
+  full DSGVO-konforme German translation of the EN privacy
+  policy, written for an Austrian operator (Goetzis, AT).
+  12 sections: Verantwortlicher, Datenkategorien mit
+  Rechtsgrundlage pro Kategorie (Art. 6 Abs. 1 lit. a/b/f
+  DSGVO), Speicherdauer (14d logs, 60s session-state in RAM),
+  Cookies/Tracking, On-Device-Berechtigungen, Drittlaender,
+  Betroffenenrechte, AVV (verweist auf Sprint 25), Sicherheit.
+
+* loupe-signaling/src/site/router.ts: /privacy-de.html added
+  to STATIC_FILE_BY_ROUTE allowlist.
+
+* loupe-signaling/site/privacy.html: alternate hreflang=de,
+  cross-link in footer.
+
+* loupe-signaling/site/index.html + imprint.html: DE link.
+
+Live (2026-06-23 22:24 UTC): privacy-de.html -> 200 with
+DSGVO keywords present.
+
+Public-Beta-Stand: ~9.2/10 -> ~9.3/10.
