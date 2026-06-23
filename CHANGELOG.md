@@ -1141,3 +1141,79 @@ cd ~/Desktop/Loupe/loupe-host-macos && swift run LoupeHost
 - Adds explicit iOS app runpath `@executable_path/Frameworks`.
 - Adds `scripts/verify-ios-webrtc-embedding.sh` for app-bundle verification.
 - Adds `docs/ios-webrtc-embedding.md` with the crash signature and verification steps.
+
+### Sprint 14: docs/threat-model.md (2026-06-23)
+
+Adds `docs/threat-model.md` covering 7 adversary classes (casual
+network observer, active MitM, compromised relay operator,
+compromised package mirror, local attacker with screen access,
+iPhone thief, state-level adversary) and 8 assets (screen pixels,
+keystrokes/clipboard, Mac filesystem, pairing tokens, DTLS
+fingerprint, signaling admin token, source code, build provenance).
+Lists the 8 defences Loupe enforces end-to-end and the 8 threats
+explicitly out of scope. Includes a verification matrix that
+maps each defence to the designed / implemented / enforced /
+tested maturity axis. Cross-references the README Security Model
+table and ADR-003 / ADR-005.
+
+### Sprint 15: docs/release-verification.md (2026-06-23)
+
+Adds `docs/release-verification.md` capturing the mandatory
+verification steps every Loupe release goes through. Three
+sections: host-binary verification (codesign, notarization,
+Gatekeeper / spctl, SHA-256, local launch), relay-binary
+verification (image identity, /healthz, scripts/test-relay.sh
+--full 18/18, security headers), and site / docs verification
+(landing page, marketing pages, endpoint drift check,
+single-source-of-truth drift check). Includes pre-release and
+post-release checklists.
+
+### Sprint 16: Public Roadmap table maturity axis (2026-06-23)
+
+`loupe-signaling/site/status.html` roadmap now exposes four
+maturity states instead of three: `shipped` (green ok), `beta`
+(blue, new), `planned` (amber warn), and `not started` (grey
+muted, new). New CSS classes `.status-pill-beta` and
+`.status-pill-muted` added to `style.css`. Roadmap rows
+re-tagged against the new scale: Public Beta is `shipped`,
+Multi-monitor + Persistent pairing + Demo video are `not
+started`, App Store listing + Crash/Diagnostics opt-in + Multi-
+region TURN + Apple-Silicon-native + status.theloupe.team +
+SBOM dependency audit are `planned`.
+
+### Sprint 13.2 (parallel): UI redesign (2026-06-23)
+
+`loupe-signaling/site/index.html` was rewritten for a more
+modern, product-led presentation. The hero is now a two-column
+grid with a live product visual on the right (animated Mac
+window showing the QR pairing screen, animated iPhone showing
+the mirrored Mac screen, dashed connector with arrow tip), the
+CTA section is a 3-card grid with icon + label + body, and a
+new "How it works" section walks through the 3-step pairing
+flow with the same device visuals scaled down. A live
+"Public beta is live" trust pill with a pulsing green dot
+replaces the text-only "trust bar". A new header CTA on
+desktop surfaces "Get the beta" above the fold. The CSS for
+all new elements lives in `style.css` (`.hero-visual`,
+`.device`, `.steps`, etc.) and supports `prefers-color-scheme:
+dark` for the device frames.
+
+### Files touched
+
+- `docs/threat-model.md` (new)
+- `docs/release-verification.md` (new)
+- `loupe-signaling/site/status.html` (roadmap + maturity axis)
+- `loupe-signaling/site/index.html` (full rewrite)
+- `loupe-signaling/site/style.css` (new hero, device, steps,
+  roadmap-pill, dark-mode rules)
+
+### Result
+
+* 4 new docs / UI commits queued for this batch
+* Public-Beta-Stand improves from 8.5/10 (post-Sprint-13.1) to
+  an estimated 8.7/10: docs coverage, public roadmap
+  transparency, and product-led landing-page visual all
+  addressed
+* Live `/` and `/status.html` carry the new content
+* Live container rebuilt: `loupe-signaling-signaling-1`,
+  uptime 11s after rebuild
