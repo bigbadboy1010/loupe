@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SESSION_ID="${1:-loupe-dev-session}"
+SESSION_ID="${1:-loupe-beta-session}"
 QR_PATH="${TMPDIR:-/tmp}/loupe-pairing-${SESSION_ID}.png"
 
 if [[ ! -f "$QR_PATH" ]]; then

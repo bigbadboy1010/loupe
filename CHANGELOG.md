@@ -2,6 +2,129 @@
 
 All notable changes to Loupe are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are tagged with the area they affect (`core-*` for protocol/transport, `product-*` for UX features, `landing-*` for the marketing layer).
 
+## Unreleased
+
+### Sprint 13.1: review-driven trust fixes (2026-06-23)
+
+Sprint 13.1 closes the seven P0 / P1 findings
+from the 23 June 2026 reviewer pass:
+
+**P0 / P1 fixes (six items):**
+
+* **GitHub About URL** (`homepage` field of the
+  repository settings) was still pointing at
+  the decommissioned `loupe.ddns.net`. Updated
+  to `https://theloupe.team` via `gh repo edit
+  bigbadboy1010/loupe --homepage
+  'https://theloupe.team'`. Reviewers and
+  beta-users who click the GitHub repo's
+  homepage link now land on the canonical
+  marketing site instead of the NoIP legacy
+  host.
+
+* **Issue #1** ("[Action Required] Register
+  loupe.app and create DNS records") closed
+  as `COMPLETED` with an explanatory comment.
+  The original plan was to migrate to
+  `loupe.app`; the team cut over to
+  `theloupe.team` instead on 2026-06-21
+  (Sprint 12, commit `9f3ddac`). The
+  underlying DNS plan is preserved at
+  `docs/DOMAIN-MIGRATION.md` for historical
+  reference; the current production
+  endpoints live at `docs/CURRENT-ENDPOINTS.md`.
+
+* **`known-issues.html` reporting flow
+  corrected.** The "Reporting a new issue?"
+  callout asked users to open a GitHub
+  Issue, but Issue creation in the public
+  repository is restricted. New text
+  directs non-security bug reports to
+  `hello@theloupe.team` (always reachable)
+  and explains that GitHub-issue access is
+  granted on request to trusted testers
+  (one email to `hello@theloupe.team`
+  with the GitHub username + build version
+  from `/healthz`).
+
+* **Pricing page: "Pro features are not
+  billed until shipped" disclaimer added.**
+  The Pro tier table currently shows
+  multi-monitor selection, encrypted session
+  recording, and priority support as
+  `planned` — the previous copy did not
+  state whether the €8/month price will
+  start being charged before the features
+  ship. The new paragraph above the table
+  makes the policy explicit: planned
+  features are removed from the Pro tier
+  (or marked "Pro — coming soon, no charge
+  until launch") until the code is in a
+  TestFlight or notarized build. Removes
+  the "verkauft, aber nicht vorhanden"
+  risk the reviewer flagged.
+
+* **`/security.html` redirect added to
+  Caddyfile.** The path returned 404 before
+  this commit. The full security disclosure
+  policy lives in the GitHub repository at
+  `SECURITY.md`; Caddy now matches
+  `/security`, `/security/`, `/security.html`,
+  and any `/security/*` subpath and returns
+  `301` to the GitHub URL. Caddyfile was
+  reloaded via `caddy validate` +
+  `caddy reload --force` (no container
+  restart, zero downtime). Caddyfile was
+  backed up to
+  `Caddyfile.bak-sprint13.1g-<timestamp>`
+  before the edit per the
+  `loupe-server-deploy` skill's standing
+  convention.
+
+* **README.md drift-check hint added.**
+  Two blocks in the README list the public
+  endpoints (a snapshot for quick reference,
+  and a "current deploy status" block in
+  the German section). The new copy
+  explicitly says these are snapshots of
+  the SoT (`docs/CURRENT-ENDPOINTS.md`) and
+  provides the `rg` one-liner the
+  `loupe-server-deploy` skill recommends
+  for the pre-release drift check.
+
+**Loupe server deploy — Caddyfile change
+verified live:**
+
+```bash
+$ curl -sI https://theloupe.team/security
+HTTP/2 301
+location: https://github.com/bigbadboy1010/loupe/blob/main/SECURITY.md
+
+$ curl -sI https://theloupe.team/security.html
+HTTP/2 301
+location: https://github.com/bigbadboy1010/loupe/blob/main/SECURITY.md
+```
+
+`https://theloupe.team/` itself still
+returns 200 (no collateral redirect).
+
+**Result:**
+
+* 6/6 sprint-13.1 items done.
+* Live Caddyfile reflects the new
+  `/security*` redirect.
+* GitHub About URL no longer points at
+  the decommissioned host.
+* Issue tracker is clean (one obsolete
+  issue closed, zero open).
+* Pricing page is honest about the
+  planned-feature billing policy.
+* Known-issues support flow no longer
+  sends users to a restricted endpoint.
+* README SoT hint closes the
+  drift-on-rename pattern that bit Sprint
+  12.
+
 ## v0.4.0-domain-cutover — theloupe.team apex + Mailcow (2026-06-21)
 
 ### Sprint 3: domain migration (hard cut, no parallel rollout)

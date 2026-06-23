@@ -187,7 +187,12 @@ public endpoint) is mirrored on the public [status page](https://theloupe.team/s
 The single source of truth for public URLs, the `/healthz` shape, and
 distribution channels is [`docs/CURRENT-ENDPOINTS.md`](docs/CURRENT-ENDPOINTS.md).
 The values below are a copy for quick reference; if you find a discrepancy,
-update CURRENT-ENDPOINTS.md and re-run `rg` against the docs.
+update CURRENT-ENDPOINTS.md and re-run the drift check:
+
+```bash
+rg -n 'loupe\.ddns\.net|theloupe\.team|signaling\.theloupe\.team' \
+  --type-add 'doc:*.{md,html}' -t doc .
+```
 
 ```
 Public URL:  https://theloupe.team
@@ -259,7 +264,10 @@ MVP-Skeleton mit abgenommenem Public Signaling/TURN-Endpoint, buildfähigem macO
 
 ## Aktueller Deploy-Stand
 
-Der öffentliche MVP-Endpoint ist voreingestellt und geprüft:
+Der öffentliche MVP-Endpoint ist voreingestellt und geprüft. Diese
+Werte sind eine Momentaufnahme; der Single-Source-of-Truth ist
+[`docs/CURRENT-ENDPOINTS.md`](docs/CURRENT-ENDPOINTS.md) (vor
+jedem Release prüfen).
 
 ```text
 Public URL:  https://theloupe.team
