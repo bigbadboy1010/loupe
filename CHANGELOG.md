@@ -1855,3 +1855,32 @@ Plus style.css checks:
   safe-area-inset (4 vars):  present
   min-height: 44px (2 rules): present
   overflow-x: auto (3 rules): present
+
+### Sprint 18.6: iOS-Picker → Data-Channel-Bridge (2026-06-24)
+
+Closes the loop between the iOS controller's display-picker
+and the macOS host's `ScreenCapture` hot-swap.
+
+**New surface**
+- `PeerConnection.onControlMessage` callback + `sendControlMessage(_:)` outbound
+- `PeerConnectionBridge` + `DisplayControlCapture` protocols
+- `DisplayControlBridge` (façade, 5.2 KB) that decodes payloads, applies the switch, and answers with a re-sent list
+- `ScreenCapture` conforms to `DisplayControlCapture`
+- `WebRTCPeerConnection.didReceiveMessageWith` now dispatches `InputEvent` *or* `DisplayControlMessage` to the appropriate callback
+- `HostSession` triggers `sendCurrentDisplayList()` on ICE-`connected` and on peer-`connected` (belt-and-braces)
+- `NullPeerConnection.sendControlMessage` stub for bring-up
+
+**Bug fix**
+- `DisplayList.refreshRateHz(for:)` — the pre-existing `display.frameRate` call (not in the public macOS 27.0 SDK) is replaced by a public-API substitute via `CGDisplayCopyDisplayMode`, with a 60 Hz fallback.
+
+**Tests** (4 new, all passing)
+- `DisplayControlBridgeTests.testHandleSelectTriggersSwitch`
+- `DisplayControlBridgeTests.testHandleGarbagePayloadDoesNotCrash`
+- `DisplayControlBridgeTests.testHandleListFromControllerReSendsList`
+- `DisplayControlBridgeTests.testSendListEncodesActiveID`
+
+**Wire protocol** (already on the iOS side from Sprint 18, now consumed by the host):
+```json
+host → controller: {"type":"display.list","v":1,"kind":"list","displays":[{...}],"activeDisplayID":"1"}
+controller → host: {"type":"display.select","v":1,"kind":"select","displayID":"2"}
+```

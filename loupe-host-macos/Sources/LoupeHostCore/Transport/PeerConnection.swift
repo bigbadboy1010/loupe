@@ -12,7 +12,7 @@ import CoreMedia
 ///  - emit local SDP/ICE through the callbacks so the caller can relay them via
 ///    ``SignalingClient``,
 ///  - accept remote SDP/ICE applied by the caller.
-public protocol PeerConnection: AnyObject, Sendable {
+public protocol PeerConnection: AnyObject, Sendable, PeerConnectionBridge {
 
     /// Local description produced by `createOffer` / `createAnswer`, ready to relay.
     var onLocalDescription: (@Sendable (SdpPayload) -> Void)? { get set }
@@ -22,6 +22,12 @@ public protocol PeerConnection: AnyObject, Sendable {
 
     /// Decoded input event arriving on the data channel from the controller.
     var onInputEvent: (@Sendable (InputEvent) -> Void)? { get set }
+
+    /// Sprint 18.6: raw control-message arriving on the data
+    /// channel from the controller (e.g. a `display.select`
+    /// message). The host should treat this as untrusted input
+    /// and validate the payload before applying.
+    var onControlMessage: (@Sendable (Data) -> Void)? { get set }
 
     /// Diagnostic callback for the WebRTC input data-channel state.
     var onDataChannelStateChanged: (@Sendable (String) -> Void)? { get set }
@@ -52,6 +58,13 @@ public protocol PeerConnection: AnyObject, Sendable {
 
     /// Pushes an encoded video frame onto the outbound track (encoded path only).
     func enqueueVideo(_ data: Data, isKeyframe: Bool, presentationTime: CMTime)
+
+    /// Sprint 18.6: send a small JSON control-message to the
+    /// controller over the data channel. The implementation
+    /// should buffer the message and deliver it on a reliable,
+    /// ordered channel; loss of an old message must not block
+    /// newer ones.
+    func sendControlMessage(_ data: Data)
 
     /// Negotiation entry points.
     func createOffer() async throws -> SdpPayload

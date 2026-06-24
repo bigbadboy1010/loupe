@@ -37,6 +37,12 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
     private var scrollEventCount = 0
     private var inputIgnoredCount = 0
     private var forwardedVideoFrameCount = 0
+    // Sprint 18.6: bridge for `display.list` / `display.select`
+    // messages arriving on the data channel. The bridge is
+    // optional so the `init` signature stays source-compatible
+    // with callers that pre-date the bridge; it is created
+    // lazily on first use.
+    private var displayBridge: DisplayControlBridge?
 
     public init(
         sessionId: String,
@@ -142,6 +148,19 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
                 self.log("input event #\(self.inputEventCount) \(Self.describe(event)) applied=\(applied) keyboard=\(self.keyboardEventCount) scroll=\(self.scrollEventCount)")
             }
         }
+        // Sprint 18.6: receive control messages from the iOS
+        // controller (e.g. a `display.select` request). We
+        // forward to the bridge which decodes and applies the
+        // change. The bridge is created lazily because
+        // `wirePeerCallbacks` is called before `capture` is
+        // assigned in `start()`.
+        peer.onControlMessage = { [weak self] data in
+            guard let self else { return }
+            if self.displayBridge == nil, let capture = self.capture {
+                self.displayBridge = DisplayControlBridge(peer: self.peer, capture: capture)
+            }
+            self.displayBridge?.handleControlMessage(data)
+        }
         peer.onDataChannelStateChanged = { [weak self] state in
             self?.log("input data-channel state=\(state)")
         }
@@ -154,6 +173,11 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
                 self.schedulePeerReset(reason: "ice-disconnected", delaySeconds: 12)
             } else if state == "connected" || state == "completed" {
                 self.cancelPeerReset(reason: "ice-\(state)")
+                // Sprint 18.6: now that the data channel is open,
+                // ship the current display list to the controller
+                // so the iOS picker can be populated. Any errors
+                // are logged but do not fail the session.
+                self.sendCurrentDisplayList()
             }
         }
         peer.onPeerConnectionStateChanged = { [weak self] state in
@@ -165,6 +189,11 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
                 self.schedulePeerReset(reason: "peer-disconnected", delaySeconds: 12)
             } else if state == "connected" {
                 self.cancelPeerReset(reason: "peer-connected")
+                // Belt-and-braces: also re-send the display list
+                // on peer-`connected` so the controller gets it
+                // even if ICE-`connected` arrived before the
+                // data channel was usable.
+                self.sendCurrentDisplayList()
             }
         }
         peer.onVideoFrameForwarded = { [weak self] count in
@@ -411,6 +440,39 @@ public final class HostSession: EncodedFrameSink, @unchecked Sendable {
 
     private static func format(_ value: Double) -> String {
         String(format: "%.3f", value)
+    }
+
+    // MARK: - Sprint 18.6: Display-control bridge
+
+    /// Forward a `display.select` to the bridge. The bridge
+    /// owns the actual hot-swap of `ScreenCapture`.
+    private func applyDisplaySelection(displayID: String) {
+        log("display.select id=\(displayID)")
+        displayBridge?.applyDisplaySelection(displayID: displayID)
+    }
+
+    /// Discover the current displays, then push them through
+    /// the bridge so the bridge can hand the encoded payload
+    /// to the data channel. We pre-encode here (rather than
+    /// inside the bridge) because we want to keep the bridge
+    /// test-friendly: the bridge only marshals bytes, not
+    /// permission-gated discovery.
+    private func sendCurrentDisplayList() {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let displays = try await DisplayList.discover()
+                let activeID = self.capture?.activeDisplayID
+                let payload = try DisplayControlCodec.makeList(
+                    displays: displays,
+                    activeDisplayID: activeID
+                )
+                self.peer.sendControlMessage(payload)
+                self.log("display.list sent count=\(displays.count) active=\(activeID ?? "nil")")
+            } catch {
+                self.log("display.list send failed error=\(error.localizedDescription)")
+            }
+        }
     }
 
     private func log(_ message: String) {

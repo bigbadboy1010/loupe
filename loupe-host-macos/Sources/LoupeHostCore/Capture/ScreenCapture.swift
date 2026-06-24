@@ -10,6 +10,9 @@
 //   - the iOS controller can now drive the display choice
 //     by sending a small JSON control message over the
 //     WebRTC data channel.
+// Sprint 18.6 (2026-06-24): conform `ScreenCapture` to the
+//   `DisplayControlCapture` protocol used by
+//   `DisplayControlBridge`.
 
 import Foundation
 import ScreenCaptureKit
@@ -132,3 +135,10 @@ public final class ScreenCapture: NSObject, SCStreamOutput, @unchecked Sendable 
         consumer.consume(sampleBuffer: sampleBuffer)
     }
 }
+
+// Sprint 18.6: conform `ScreenCapture` to the
+// `DisplayControlCapture` protocol used by
+// `DisplayControlBridge`. We do this in an extension so the
+// `ScreenCapture` file itself remains the canonical owner of
+// the capture lifecycle.
+extension ScreenCapture: DisplayControlCapture {}

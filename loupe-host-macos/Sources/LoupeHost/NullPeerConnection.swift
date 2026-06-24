@@ -11,6 +11,10 @@ final class NullPeerConnection: PeerConnection, @unchecked Sendable {
     var onLocalDescription: (@Sendable (SdpPayload) -> Void)?
     var onLocalIceCandidate: (@Sendable (IceCandidatePayload) -> Void)?
     var onInputEvent: (@Sendable (InputEvent) -> Void)?
+    /// Sprint 18.6: see `PeerConnection.onControlMessage`. The
+    /// null transport simply discards; the host does not need
+    /// control messages during bring-up.
+    var onControlMessage: (@Sendable (Data) -> Void)?
     var onDataChannelStateChanged: (@Sendable (String) -> Void)?
     var onIceConnectionStateChanged: (@Sendable (String) -> Void)?
     var onPeerConnectionStateChanged: (@Sendable (String) -> Void)?
@@ -59,5 +63,12 @@ final class NullPeerConnection: PeerConnection, @unchecked Sendable {
 
     func close() {
         FileHandle.standardError.write(Data("[peer] closed; total frames=\(frameCount)\n".utf8))
+    }
+
+    /// Sprint 18.6: see `PeerConnectionBridge.sendControlMessage`.
+    /// The null transport has no data channel, so we simply
+    /// accept and drop the payload. Used only during bring-up.
+    func sendControlMessage(_ data: Data) {
+        FileHandle.standardError.write(Data("[peer] control message dropped (null transport) bytes=\(data.count)\n".utf8))
     }
 }

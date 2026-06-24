@@ -124,7 +124,7 @@ public enum DisplayList {
                 name: name,
                 width: display.width,
                 height: display.height,
-                refreshRateHz: Int(display.frameRate.rounded()),
+                refreshRateHz: DisplayList.refreshRateHz(for: display),
                 scale: scale,
                 isPrimary: display.displayID == primaryID
             )
@@ -166,5 +166,25 @@ public enum DisplayList {
         // This is a heuristic; the iOS UI shows the pixel
         // dimensions so the user has the source of truth.
         return 1.0
+    }
+
+    /// Refresh-rate estimate in Hz. ScreenCaptureKit does
+    /// not currently expose `frameRate` on `SCDisplay` (the
+    /// property exists in private SDKs but is not in the
+    /// public macOS 27.0 SDK). We query
+    /// `CGDisplayMode.refreshRate` as a public-API
+    /// substitute and fall back to 60 Hz (the most common
+    /// modern display rate) when CoreGraphics can't tell us.
+    private static func refreshRateHz(for display: SCDisplay) -> Int {
+        let displayID = display.displayID
+        guard let mode = CGDisplayCopyDisplayMode(displayID) else {
+            return 60
+        }
+        let rate = mode.refreshRate
+        // `CGDisplayMode.refreshRate` is a `Double` and
+        // returns 0 for some virtual displays; we never want
+        // to advertise 0 Hz so we floor at 1.
+        if rate <= 0 { return 60 }
+        return Int(rate.rounded())
     }
 }

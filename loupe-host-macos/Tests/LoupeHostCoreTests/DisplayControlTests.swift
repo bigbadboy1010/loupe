@@ -12,6 +12,7 @@
 // by the host's iPhone-acceptance test.
 
 import XCTest
+import CoreMedia
 @testable import LoupeHostCore
 
 final class DisplayControlTests: XCTestCase {

@@ -30,6 +30,13 @@ public final class WebRTCPeerConnection: NSObject, PeerConnection, VideoFrameCon
     public var onLocalDescription: (@Sendable (SdpPayload) -> Void)?
     public var onLocalIceCandidate: (@Sendable (IceCandidatePayload) -> Void)?
     public var onInputEvent: (@Sendable (InputEvent) -> Void)?
+    /// Sprint 18.6: control message arriving on the data
+    /// channel from the controller (a `display.select` JSON
+    /// payload). The implementation tries to decode an
+    /// `InputEvent` first; if that fails, the raw bytes are
+    /// passed to `onControlMessage` instead. The two are
+    /// mutually exclusive on any given message.
+    public var onControlMessage: (@Sendable (Data) -> Void)?
     public var onDataChannelStateChanged: (@Sendable (String) -> Void)?
     public var onIceConnectionStateChanged: (@Sendable (String) -> Void)?
     public var onPeerConnectionStateChanged: (@Sendable (String) -> Void)?
@@ -522,10 +529,38 @@ extension WebRTCPeerConnection: RTCDataChannelDelegate {
             return
         }
         guard let event = try? InputEvent.decode(from: buffer.data) else {
-            onDataChannelStateChanged?("message-decode-failed")
+            // Sprint 18.6: not an InputEvent — try as a
+            // control message instead. Anything that is
+            // neither a valid InputEvent nor a valid
+            // DisplayControlMessage is dropped (with a
+            // diagnostic log) so the host never crashes on
+            // garbage from the controller.
+            if let _ = try? DisplayControlCodec.decode(buffer.data) {
+                onControlMessage?(buffer.data)
+            } else {
+                onDataChannelStateChanged?("message-decode-failed")
+            }
             return
         }
         onInputEvent?(event)
+    }
+}
+
+// Sprint 18.6: outbound control-message send. The same
+// reliable, ordered data channel used for `InputEvent`s is
+// reused; libwebrtc guarantees in-order delivery and
+// retransmission on the SCTP layer.
+extension WebRTCPeerConnection {
+    public func sendControlMessage(_ data: Data) {
+        lock.lock()
+        let channel = inputChannel
+        lock.unlock()
+        guard let channel, channel.readyState == .open else {
+            onDataChannelStateChanged?("control-send-no-channel")
+            return
+        }
+        let buffer = RTCDataBuffer(data: data, isBinary: false)
+        channel.sendData(buffer)
     }
 }
 
