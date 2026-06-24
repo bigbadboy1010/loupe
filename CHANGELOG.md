@@ -1884,3 +1884,27 @@ and the macOS host's `ScreenCapture` hot-swap.
 host → controller: {"type":"display.list","v":1,"kind":"list","displays":[{...}],"activeDisplayID":"1"}
 controller → host: {"type":"display.select","v":1,"kind":"select","displayID":"2"}
 ```
+
+### Sprint 19: App-Store listing copy (2026-06-24)
+
+The complete App Store Connect listing copy for the
+`LoupeControllerApp` is now checked in to
+`docs/app-store-listing-copy.md`. Four locales (`en-US`,
+`de-DE`, `fr-FR`, `es-ES`) are provided with the same
+canonical field set:
+
+- Name (16 chars)
+- Subtitle (≤ 30 chars)
+- Promotional Text (≤ 170 chars)
+- Description (≤ 4000 chars)
+- What's New in this Version (≤ 4000 chars)
+- Keywords (≤ 100 chars)
+- Support URL, Marketing URL, Privacy URL, Copyright
+- Primary/Secondary Category, Age Rating
+
+`scripts/check-listing-lengths.sh` is the CI pre-submit
+hook that asserts every field is within the App Store
+Connect limit; on failure the script exits non-zero and
+the `ios-listing` GitHub Actions workflow blocks the PR.
+A real-world run on the checked-in copy shows 24 / 24
+fields passing across all four locales.
