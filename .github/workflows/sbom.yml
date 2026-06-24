@@ -1,0 +1,79 @@
+# Sprint 21 (2026-06-24): Software Bill of Materials
+# (SBOM) generation + dependency-audit pipeline.
+#
+# Runs on:
+# - every push to main (audit only — fails on high/critical)
+# - every release tag (full SBOM + audit + upload artifact)
+# - weekly Monday 06:00 UTC (full SBOM + audit, for
+#   catching newly-disclosed advisories in the npm DB)
+name: sbom
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  sbom:
+    name: generate SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: loupe-signaling/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: npm ci
+        working-directory: loupe-signaling
+      - name: Generate SBOM
+        run: scripts/sbom-generate.sh
+      - name: Validate SBOM JSON
+        run: |
+          python3 - <<'PY'
+          import json, glob, sys
+          for f in glob.glob("build/sbom/*.cdx.json"):
+            try:
+              json.load(open(f))
+              print(f"OK {f}")
+            except Exception as e:
+              print(f"FAIL {f}: {e}")
+              sys.exit(1)
+          PY
+      - name: Upload SBOM (release tag only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: loupe-sbom
+          path: build/sbom/
+          retention-days: 365
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: loupe-signaling/package-lock.json
+      - name: Install
+        run: npm ci
+        working-directory: loupe-signaling
+      - name: Audit
+        run: scripts/dep-audit.sh --fail-on=high
+      - name: Upload audit report (always)
+        uses: actions/upload-artifact@v4
+        with:
+          name: loupe-audit
+          path: build/audit.json
+          retention-days: 90
