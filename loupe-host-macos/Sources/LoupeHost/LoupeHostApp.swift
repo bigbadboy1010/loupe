@@ -34,6 +34,10 @@ struct LoupeHostApp: App {
                     Task { @MainActor in await model.refreshPermissions() }
                 }
                 .keyboardShortcut("r", modifiers: [.command])
+                Divider()
+                Button("Crash-Reporting-Einstellungen…") {
+                    showCrashReportingSettings()
+                }
             }
         }
     }
@@ -496,6 +500,25 @@ func openPrivacySettings() {
             return
         }
     }
+}
+
+// MARK: - Crash-Reporting settings (Sprint 23)
+
+/// Open the crash-reporting settings window. The settings
+/// are persisted via `UserDefaultsCrashReportingSettingsStore`
+/// and the in-process reporter is updated immediately so the
+/// next crash (or non-fatal error) follows the new policy.
+@MainActor
+func showCrashReportingSettings() {
+    let store = UserDefaultsCrashReportingSettingsStore()
+    let reporter: CrashReporter = NullCrashReporter()
+    let model = CrashReportingSettingsModel(store: store, reporter: reporter)
+    let view = CrashReportingSettingsView(model: model)
+    let hosting = NSHostingController(rootView: view)
+    let window = NSWindow(contentViewController: hosting)
+    window.title = "Loupe — Absturzberichte"
+    window.makeKeyAndOrderFront(nil)
+    NSApp.activate(ignoringOtherApps: true)
 }
 
 #endif

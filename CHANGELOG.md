@@ -1908,3 +1908,47 @@ Connect limit; on failure the script exits non-zero and
 the `ios-listing` GitHub Actions workflow blocks the PR.
 A real-world run on the checked-in copy shows 24 / 24
 fields passing across all four locales.
+
+### Sprint 23: Crash opt-in Sentry (2026-06-24)
+
+Adds an **off-by-default** crash-reporting pipeline to the
+Loupe macOS host. The user has to opt in explicitly from
+the Settings sheet (Loupe menu → "Crash-Reporting-
+Einstellungen…"). The toggle is in `UserDefaults` under
+`loupe.crashReporting.settings.v1`.
+
+**New surface**
+- `LoupeHostCore/Telemetry/CrashReporter.swift` (6.2 KB)
+  - `CrashReportingSettings` (Codable)
+  - `CrashReportingSettingsStore` protocol
+  - `UserDefaultsCrashReportingSettingsStore` (UserDefaults-backed)
+  - `CrashReporter` protocol (`install` / `update` / `capture`)
+  - `SentryCrashReporter` (no-op when disabled, lazy
+    `#if canImport(Sentry)` initialisation when enabled)
+  - `NullCrashReporter` for unit tests
+- `LoupeHost/Settings/CrashReportingSettingsView.swift`
+  (3.8 KB) — SwiftUI settings sheet with toggle, plain-
+  language description, and "Zuletzt geändert" label
+- `LoupeHostApp.swift` — new "Crash-Reporting-Einstellungen…"
+  command-menu entry + `showCrashReportingSettings()`
+  window presenter
+
+**Tests** (6 new, all passing)
+- `testStoreRoundTrip` — settings save and load
+- `testStoreDefaultsToDisabled` — default is off (security property)
+- `testCaptureIsNoOpWhenDisabled` — no-op when off
+- `testInstallWithNoDSNDoesNotEnable` — opt-in without DSN stays dormant
+- `testUpdatePropagatesToStore` — runtime updates land in the store
+- `testNullReporterIsAlwaysSafe` — no-op reporter does not throw
+
+**Docs**
+- `docs/crash-reporting.md` — full DSGVO design doc, data
+  minimisation, sub-processor relationship, opt-in flow
+
+**Privacy posture**
+- Stack trace + program version + OS version + arch + anonymous
+  session id + locale — only when opted in
+- We never send: pairing tokens, relay URLs, host keys, screen
+  pixels, keystrokes, advertising IDs, file paths under $HOME
+- `sendDefaultPii = false` on Sentry options
+- Settings sheet always shows the "what we send" paragraph
