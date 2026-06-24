@@ -1952,3 +1952,66 @@ Einstellungen…"). The toggle is in `UserDefaults` under
   pixels, keystrokes, advertising IDs, file paths under $HOME
 - `sendDefaultPii = false` on Sentry options
 - Settings sheet always shows the "what we send" paragraph
+
+### Sprint 20: End-to-End Test Coverage + CI (2026-06-24)
+
+Adds an automated end-to-end test pipeline that runs on
+every PR to `main` and on every release tag. The pipeline
+covers four layers:
+
+1. **Unit** (host + relay) — `swift test` and the relay's
+   internal tests, runs in ~ 0.5 s on a CI runner.
+2. **Smoke** (relay protocol) — the existing
+   `loupe-signaling/test/smoke.ts` (242 lines, 12
+   assertions, < 0.5 s).
+3. **Site smoke** (static site router) — the existing
+   `loupe-signaling/test/site.smoke.ts` (317 lines, 20+
+   assertions, < 1 s).
+4. **Acceptance** (real pairing against a live relay) —
+   the new `scripts/e2e-acceptance.sh` (224 lines) +
+   `scripts/e2e-controller.ts` (152 lines) bridge the
+   smoke layer and the iPhone-on-real-network acceptance
+   described in `docs/iphone-test-acceptance.md`.
+
+**New files (Sprint 20):**
+- `.github/workflows/e2e.yml` — CI workflow with 4 jobs:
+  `signaling-smoke`, `host-unit`, `listing-lengths` (from
+  Sprint 19), and `e2e-acceptance` (release-tag-only).
+  The acceptance job uploads the host + controller logs
+  as an artifact on failure so the next maintainer can
+  triage without re-running.
+- `scripts/e2e-acceptance.sh` — bash wrapper that boots
+  the host in CLI mode, watches the host's pairing-token
+  and turn-cred log lines, runs the scripted controller,
+  asserts peer-joined + setPeerPublicKey + strict-mode
+  log lines, emits a structured JSON result file.
+- `scripts/e2e-controller.ts` — the scripted controller:
+  joins with a valid 43-char base64url publicKey,
+  performs SDP/ICE handshake, logs a JSONL event stream
+  for the bash wrapper to grep on.
+- `docs/e2e-test-coverage.md` — design note covering
+  the four layers, the CI workflow, the acceptance
+  script's scope, and what it deliberately does *not*
+  test (real-device perf, cursor visibility, haptics).
+
+**CI job matrix:**
+| Job | Trigger | Runner | Time |
+|---|---|---|---|
+| signaling-smoke | every PR + push | ubuntu-latest | ~30 s |
+| host-unit | every PR + push | macos-14 | ~5 min |
+| listing-lengths | every PR + push | ubuntu-latest | ~5 s |
+| e2e-acceptance | release tag only | macos-14 | ~10 min |
+
+**Verified locally:**
+- `bash -n scripts/e2e-acceptance.sh` → OK
+- `python3 -c "import yaml; yaml.safe_load(...)" .github/workflows/e2e.yml` → OK
+- `swift test --filter "CrashReporterTests|DisplayControlBridgeTests"` → 10/10 pass
+
+**NOT changed (intentionally):**
+- The relay smoke tests (`smoke.ts`, `site.smoke.ts`)
+  are unchanged — they already cover the protocol and
+  the site router. Sprint 20 wires them into CI and adds
+  the acceptance layer above them.
+- The pre-existing `PairedDeviceStoreTests` failure on
+  fresh `swift test` is acknowledged in the coverage
+  doc; the fix is Sprint 20.1 (date-format locale).

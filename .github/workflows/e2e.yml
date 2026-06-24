@@ -1,0 +1,96 @@
+# Sprint 20 (2026-06-24): end-to-end CI workflow.
+#
+# Runs on every PR and every push to main. The full
+# acceptance job (e2e-acceptance.sh) only runs on release
+# tags to keep the CI bill down.
+name: e2e
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  # ---------- Loupe signaling smoke (relay + site) ----------
+  signaling-smoke:
+    name: signaling smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: loupe-signaling
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: loupe-signaling/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Smoke (relay protocol)
+        run: npm run test:smoke
+      - name: Smoke (static site)
+        run: npm run test:site
+
+  # ---------- Loupe macOS host unit tests ----------
+  host-unit:
+    name: host unit (SwiftPM)
+    runs-on: macos-14
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: swift build
+        run: swift build
+        working-directory: loupe-host-macos
+      - name: swift test
+        run: swift test
+        working-directory: loupe-host-macos
+
+  # ---------- Listing-copy length check (Sprint 19) ----------
+  listing-lengths:
+    name: App-Store listing length check
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check listing lengths
+        run: scripts/check-listing-lengths.sh
+
+  # ---------- E2E acceptance (only on release tags) ----------
+  e2e-acceptance:
+    name: e2e acceptance (release tag only)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: loupe-signaling/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install relay deps
+        run: npm ci
+        working-directory: loupe-signaling
+      - name: Build host CLI
+        run: swift build -c release
+        working-directory: loupe-host-macos
+      - name: Run acceptance script
+        run: scripts/e2e-acceptance.sh
+        env:
+          LOUPE_RELAY: wss://signaling.theloupe.team/ws
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-acceptance-logs
+          path: /tmp/loupe-e2e-*/
+          retention-days: 14
