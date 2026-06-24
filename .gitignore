@@ -4,6 +4,11 @@
 build/sbom/
 build/audit.json
 
+# Build outputs (DMG installer, .app bundle, icon assets)
+build/dist/
+build/host-app/
+build/host-app-icon/
+
 # Standard macOS / Node noise
 .DS_Store
 node_modules/
