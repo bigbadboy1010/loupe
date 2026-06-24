@@ -1788,3 +1788,70 @@ Mac …" message.
 
 Public-Beta-Stand: 9.4/10 (Web/Signaling) + first iOS-UI
 surfaces for the new sprints.
+
+### Mobile fix (2026-06-24)
+
+Audit pass on a mobile device (iPhone 12, 390x844) revealed
+four classes of issues on both theloupe.team and securechat.team.
+This entry documents the Loupe-side fixes.
+
+* `loupe-signaling/site/style.css` (1353 -> 1457 lines):
+  - iOS safe-area: new `--safe-top/bottom/left/right` CSS
+    custom properties read from
+    `env(safe-area-inset-*)`. `.site-header` and `main` now
+    apply `max(16px, var(--safe-top))` etc. so the notch
+    and home indicator are respected on iPhone X+
+  - Touch-targets: `.btn`, `.btn-large`, `.btn-ghost`,
+    `.cta-card .btn`, `.header-cta`, `.site-nav a` all
+    enforce `min-height: 44px` (Apple HIG) and
+    `inline-flex; align-items: center` for vertical
+    centering
+  - Tables: `table { display: block; overflow-x: auto; }`
+    with `-webkit-overflow-scrolling: touch` so the
+    Status page and DSGDO tables scroll horizontally
+    on narrow viewports instead of breaking the layout
+  - Code: `.doc pre, .doc code, pre, code` get
+    `max-width: 100%; overflow-x: auto;
+     word-break: break-word; white-space: pre-wrap`
+  - Hero device-iphone: scaled to 0.78 on viewports <=
+    480px wide via `transform: scale()` with
+    `transform-origin: top center` so the mock phone
+    does not push the layout into overflow
+  - CTA grid: stacked to 1 column under 640px (was 1fr
+    for the 3-up row)
+  - Body font-size: bumped to 16px (was 17px in the
+    rule, but small-text variants existed at 12.5px
+    which are below the iOS-recommended 16px minimum)
+
+* `loupe-signaling/site/{privacy,privacy-de,avv,
+  sub-processors,imprint,known-issues,
+  docs/pricing,docs/self-host}.html`: viewport meta
+  extended from `width=device-width, initial-scale=1`
+  to add `viewport-fit=cover` so the iOS safe-area
+  CSS variables resolve to non-zero values
+
+### Live verification (2026-06-24 06:00 UTC)
+
+```
+$ for page in privacy.html privacy-de.html avv.html \
+              sub-processors.html status.html \
+              imprint.html known-issues.html \
+              docs/pricing.html docs/self-host.html; do
+    curl -sS https://theloupe.team/$page | \
+      grep -q viewport-fit=cover && echo ok $page
+  done
+ok privacy.html
+ok privacy-de.html
+ok avv.html
+ok sub-processors.html
+ok status.html
+ok imprint.html
+ok known-issues.html
+ok docs/pricing.html
+ok docs/self-host.html
+```
+
+Plus style.css checks:
+  safe-area-inset (4 vars):  present
+  min-height: 44px (2 rules): present
+  overflow-x: auto (3 rules): present
