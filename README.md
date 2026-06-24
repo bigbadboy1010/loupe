@@ -6,9 +6,9 @@
 
 Loupe is private remote desktop for people who live in the Apple ecosystem. It pairs your Mac and your iPhone with a QR code, sends the screen over WebRTC with hardware H.264/HEVC, and never sees your screen, your keystrokes, or your clipboard. The signaling server only relays SDP and ICE — the media flows peer-to-peer, encrypted end-to-end.
 
-| Build status | Latest stable | Public endpoint |
-| ------------ | ------------- | --------------- |
-| CI on `main` (last 5 runs all green) | v0.2.0 (host) / v3.10 (controller) | `https://theloupe.team` |
+| Build status | Latest release | Relay (live) | Public endpoint |
+| ------------ | -------------- | ------------ | --------------- |
+| CI on `main` (last 5 runs all green) | v0.2.0 host (notarised) · v3.10 controller (TestFlight build 7) | `v0.4.0+` ([/healthz](https://theloupe.team/healthz)) | `https://theloupe.team` |
 
 **TL;DR:** No account. No media cloud. Self-hostable signaling. Source-available; commercial use requires a license.
 
@@ -105,20 +105,20 @@ Loupe/
 
 ## What's working and what's not
 
-### ✅ Working (v3.6-stable protocol)
+### ✅ Working (v3.10-stable protocol)
 
 - Screen capture + hardware encode on the host.
 - WebRTC negotiation, DTLS-SRTP, STUN + TURN (coturn) with rotating credentials.
 - iPhone ↔ Mac: touch, trackpad, scroll, keyboard, clipboard send, common keyboard shortcuts.
 - Mac ↔ Mac.
 - Auto-reconnect within 5–10 s after network drops.
-- Stability verified in 10-minute soak + network-stress tests (see `docs/STABILITY-REPORT-v3.6.md`).
+- Stability verified in 10-minute soak + network-stress tests (see `docs/STABILITY-REPORT-v3.6.md`, the latest published stability snapshot; v3.10 sprint adds testflight-ready controller polish on top).
 - Three controller surfaces: iPhone, iPad (universal), native macOS.
 
 ### ⚠️ Known limitations
 
 - **Mac → iPhone is view-only.** Apple does not allow third-party apps to inject input on iOS. This is a platform policy, not a Loupe limitation. See [`docs/architecture.md`](docs/architecture.md#known-limitations).
-- **Multi-monitor** is on the roadmap but not shipped.
+- **Multi-monitor** shipped in Sprint 18 (2026-06-23), Pro tier first.
 - **TURN relay is single-region** (`212.186.18.125` via `signaling.theloupe.team`). Self-host or wait for multi-region if you need HA.
 - **iOS / iPadOS controller is in Public Beta on TestFlight.**
   Open the build directly with the [TestFlight join link](https://testflight.apple.com/join/wsJeRw1M)
