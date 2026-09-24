@@ -8,10 +8,11 @@ Loupe turns an iPhone, iPad, or Mac into a low-latency controller for a Mac host
 
 **Public beta.** The stable user path is:
 
-1. Install and start the macOS Host.
-2. Open the iPhone or iPad Controller.
-3. Pair with QR code or token.
-4. Control the Mac with touch, trackpad, scroll, and keyboard input.
+1. Install and open the macOS Host app.
+2. Click **Host starten** in `LoupeHost.app`.
+3. Open the iPhone or iPad Controller.
+4. Scan the QR code shown directly in the Host app.
+5. Control the Mac with touch, trackpad, scroll, and keyboard input.
 
 The native Mac Controller is available as a companion surface, but the primary tested product path remains **iPhone/iPad -> Mac**.
 
@@ -46,7 +47,7 @@ Controller App  <-- WebRTC Video Track --  Mac Host ScreenCaptureKit
 
 | Component | Path | Purpose |
 |---|---|---|
-| macOS Host | `loupe-host-macos/` | Captures the Mac screen and injects input through macOS APIs. |
+| macOS Host | `loupe-host-macos/` | Captures the Mac screen, injects input through macOS APIs, and shows the product Pairing UI. |
 | iPhone/iPad Controller | `apps/LoupeControllerApp/` | Product app wrapper for the controller UI. |
 | Controller Kit | `loupe-controller-ios/` | Shared WebRTC, pairing, diagnostics, input, and renderer logic. |
 | Native Mac Controller | `apps/LoupeControllerMacApp/` | Token-first native macOS controller companion. |
@@ -78,25 +79,33 @@ chmod +x scripts/*.sh
 ./scripts/verify-ios-webrtc-embedding.sh
 ```
 
-Open Xcode:
+Build and open the Host app:
 
 ```bash
-./scripts/open-xcode.sh
+./scripts/build-host-app.sh /Applications/LoupeHost.app
+open /Applications/LoupeHost.app
 ```
 
-Typical manual runtime flow:
+Normal runtime flow:
+
+```text
+Mac:
+LoupeHost.app öffnen -> Host starten -> QR-Code im Fenster anzeigen
+
+iPhone/iPad:
+LoupeControllerApp öffnen -> Scan QR code -> QR aus dem Mac-Fenster scannen
+```
+
+Developer fallback CLI:
 
 ```bash
-# Terminal 1: start host
 cd loupe-host-macos
-swift run LoupeHost
-
-# Terminal 2: open latest QR
-cd ..
-./scripts/open-host-qr.sh loupe-dev-session
+swift run LoupeHost --cli
 ```
 
-Then deploy `LoupeControllerApp` to a real iPhone or iPad from Xcode and scan the QR code. Simulator-only tests are not sufficient for end-to-end validation.
+The CLI still prints the pairing token and writes a temporary QR PNG. It is not the normal product flow anymore.
+
+Simulator-only tests are not sufficient for end-to-end validation; use a real iPhone or iPad.
 
 ## Native Mac Controller
 
@@ -129,6 +138,7 @@ Do not manually copy only the SwiftPM executable into `/Applications`; that will
 | Architecture | [`docs/architecture.md`](docs/architecture.md) |
 | WebRTC negotiation | [`docs/webrtc-negotiation.md`](docs/webrtc-negotiation.md) |
 | UI direction | [`docs/UI-DESIGN-v3.11.md`](docs/UI-DESIGN-v3.11.md) |
+| Host Pairing UI | [`docs/HOST-PAIRING-UI-v3.12.md`](docs/HOST-PAIRING-UI-v3.12.md) |
 | Target platforms | [`docs/TARGET-PLATFORMS-v3.8.md`](docs/TARGET-PLATFORMS-v3.8.md) |
 | Security | [`SECURITY.md`](SECURITY.md) |
 | Next OpenClaw task | [`docs/openclaw-next-prompt.md`](docs/openclaw-next-prompt.md) |
