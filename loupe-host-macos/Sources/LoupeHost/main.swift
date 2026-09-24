@@ -1,29 +1,16 @@
 // Loupe macOS host — entry-point shim.
 //
-// There are two entry points:
-//   1. LoupeHostApp (SwiftUI @main, in LoupeHostApp.swift) — used when
-//      launched as a `.app` bundle.
-//   2. LoupeHostCLI.run() (in LoupeHostCLI.swift) — used when launched
-//      from the command line, e.g. via `swift run LoupeHost`.
+// There are two entry paths in the same executable:
+//   1. LoupeHostApp.main() — product GUI used by the bundled .app and Xcode
+//      when launched with `--app`.
+//   2. LoupeHostCLI.run() — developer/fallback CLI used by `--cli` and by
+//      plain `swift run LoupeHost`.
 //
-// SwiftPM does not let one executable have both an `@main` attribute
-// and a top-level script body in different files, so we keep a single
-// `main.swift`-style file that picks between the two at runtime based
-// on how the process was launched:
-//
-//   - If the parent process is launchd (the user double-clicked the
-//     `.app`), NSApplication.shared is initialised by LoupeHostApp's
-//     `@main` attribute — but only if `@main` is in scope. Because
-//     we cannot have both `@main` here and in LoupeHostApp.swift, we
-//     pick a different signal: the executable name. When the bundle
-//     runs, the executable is `LoupeHost.app/Contents/MacOS/LoupeHost`;
-//     when launched from CLI it's also `LoupeHost`. So we look at
-//     argv[0] instead.
-//
-// The SwiftUI `@main` is in `LoupeHostApp.swift` and that is the
-// default entry point. To run the CLI mode, pass `--cli` as the
-// first argument, or run from `swift run LoupeHost` (which appends
-// the executable path).
+// SwiftPM does not provide a native macOS .app bundle for executable targets,
+// so Xcode's SwiftPM scheme normally launches the raw executable. The explicit
+// `--app` argument makes that raw executable enter the SwiftUI host UI anyway,
+// which lets developers run the Host Pairing UI directly from Xcode without
+// first packaging /Applications/LoupeHost.app.
 
 import Foundation
 import CoreGraphics
@@ -35,46 +22,87 @@ private enum HostDefaults {
     static let hostKeychainAccount = "macos-host"
 }
 
-func parseArguments() -> (sessionId: String, signalingURL: URL, cli: Bool) {
-    let args = CommandLine.arguments
-    // Drop the first "--cli" flag if present so the rest of the
-    // argument parsing is identical to the old main.swift logic.
-    var argv = args
-    var cli = false
-    if argv.count > 1, argv[1] == "--cli" {
-        cli = true
-        argv.removeFirst()
+private struct HostLaunchOptions {
+    let sessionId: String
+    let signalingURL: URL
+    let mode: Mode
+
+    enum Mode {
+        case automatic
+        case app
+        case cli
     }
-    let sessionId = argv.count > 1 ? argv[1] : HostDefaults.sessionId
-    let urlString = argv.count > 2 ? argv[2] : HostDefaults.signalingURL
+}
+
+private func parseArguments() -> HostLaunchOptions {
+    var argv = CommandLine.arguments
+    let executable = argv.removeFirst()
+    var mode: HostLaunchOptions.Mode = .automatic
+
+    if let first = argv.first {
+        switch first {
+        case "--app":
+            mode = .app
+            argv.removeFirst()
+        case "--cli":
+            mode = .cli
+            argv.removeFirst()
+        case "--help", "-h":
+            print("""
+            LoupeHost
+
+            Usage:
+              LoupeHost --app [sessionId] [signalingURL]   Start the SwiftUI Host app UI.
+              LoupeHost --cli [sessionId] [signalingURL]   Start the developer CLI host.
+              LoupeHost [sessionId] [signalingURL]         Auto: .app bundle => UI, raw executable => CLI.
+
+            Defaults:
+              sessionId:    \(HostDefaults.sessionId)
+              signalingURL: \(HostDefaults.signalingURL)
+            """)
+            exit(0)
+        default:
+            break
+        }
+    }
+
+    let sessionId = argv.count > 0 ? argv[0] : HostDefaults.sessionId
+    let urlString = argv.count > 1 ? argv[1] : HostDefaults.signalingURL
     guard let url = URL(string: urlString) else {
         FileHandle.standardError.write(Data("Invalid signaling URL: \(urlString)\n".utf8))
+        FileHandle.standardError.write(Data("Executable: \(executable)\n".utf8))
         exit(2)
     }
-    return (sessionId, url, cli)
+    return HostLaunchOptions(sessionId: sessionId, signalingURL: url, mode: mode)
 }
 
-// When the binary is launched as a `.app` bundle (e.g. via Finder or
-// `open`), the parent process is launchd, the binary lives inside
-// `LoupeHost.app/Contents/MacOS/`, and the user expects a GUI window.
-// When launched from the command line, there is no `.app` bundle, so
-// we run the legacy CLI entry point instead.
-func isLikelyBundledLaunch() -> Bool {
-    // Bundle.main.bundleIdentifier is set only when the executable lives
-    // inside a `.app` bundle with a proper Info.plist.
-    return Bundle.main.bundleIdentifier != nil
+// When the binary is launched as a `.app` bundle via Finder or `open`,
+// Bundle.main.bundleIdentifier is set by Info.plist and the user expects a
+// GUI window. When launched as a raw SwiftPM executable, there is no bundle
+// identifier; in that case keep the legacy CLI unless `--app` is explicit.
+private func isLikelyBundledLaunch() -> Bool {
+    Bundle.main.bundleIdentifier != nil
 }
 
-let (sessionId, signalingURL, cliRequested) = parseArguments()
+let options = parseArguments()
 
-if cliRequested || !isLikelyBundledLaunch() {
-    // CLI mode. Print diagnostics to stderr and wait for SIGINT.
+switch options.mode {
+case .app:
+    LoupeHostApp.main()
+case .cli:
     LoupeHostCLI.run(
-        sessionId: sessionId,
-        signalingURL: signalingURL,
+        sessionId: options.sessionId,
+        signalingURL: options.signalingURL,
         hostKeychainAccount: HostDefaults.hostKeychainAccount
     )
-} else {
-    // Bundled launch. Hand control to SwiftUI.
-    LoupeHostApp.main()
+case .automatic:
+    if isLikelyBundledLaunch() {
+        LoupeHostApp.main()
+    } else {
+        LoupeHostCLI.run(
+            sessionId: options.sessionId,
+            signalingURL: options.signalingURL,
+            hostKeychainAccount: HostDefaults.hostKeychainAccount
+        )
+    }
 }

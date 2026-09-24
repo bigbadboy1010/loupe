@@ -1,91 +1,195 @@
-# OpenClaw Prompt — Loupe v3.7.2 Product Control Polish
+# OpenClaw Prompt — Loupe v3.12 Host Pairing UI
 
-Bitte ersetze Loupe durch v3.7.2 und teste gezielt Product-Control ohne Server-Änderungen.
+Ziel: aktuellen GitHub-Stand synchronisieren, Host Pairing UI direkt in Xcode starten und End-to-End mit iPhone/iPad testen.
 
-Neue ZIP:
-`~/Desktop/Loupe_v3_7_2_product_control_polish.zip`
+Branch:
+`chore/docs-ui-polish-v3-11`
 
 Aktueller Projektpfad:
 `~/Desktop/Loupe`
 
 Wichtig:
-- v3.7.2 baut auf v3.7.1 stable auf.
-- Kein Server-Redeploy nötig.
-- Kein Signaling-/SDP-/ICE-/TURN-Refactoring.
-- v3.6/v3.7.1 Stability/Reconnect-Core muss erhalten bleiben.
+- Kein Server-Redeploy.
+- Keine Signaling-/SDP-/ICE-/TURN-Änderungen.
+- Keine WebRTC-Core-Änderungen.
+- Fokus: Host-Pairing-UI ist direkt aus Xcode startbar und zeigt QR/Token in der App.
 
-## Schritte
+## 1. Repository synchronisieren
 
 ```bash
 cd ~/Desktop
-mv Loupe Loupe_backup_before_v3_7_2_$(date +%Y%m%d_%H%M%S)
-unzip ~/Desktop/Loupe_v3_7_2_product_control_polish.zip -d ~/Desktop
+
+if [ ! -d Loupe/.git ]; then
+  git clone https://github.com/bigbadboy1010/loupe.git Loupe
+fi
+
+cd ~/Desktop/Loupe
+git fetch origin
+git checkout chore/docs-ui-polish-v3-11
+git pull --ff-only origin chore/docs-ui-polish-v3-11
+```
+
+Falls lokale Änderungen vorhanden sind:
+
+```bash
+git status --short
+git stash push -u -m "local-before-v3.12-host-pairing-ui" || true
+git pull --ff-only origin chore/docs-ui-polish-v3-11
+```
+
+## 2. Build-Checks ausführen
+
+```bash
 cd ~/Desktop/Loupe
 chmod +x scripts/*.sh
 
 ./scripts/loupe-doctor.sh
 ./scripts/run-xcode-builds.sh
 ./scripts/verify-ios-webrtc-embedding.sh
+./scripts/run-controller-platform-builds.sh
 ```
 
-Falls Buildfehler auftreten:
-- Keine Architektur umbauen.
-- Keine WebRTC-Core-Änderungen.
-- Keine Server-Änderungen.
-- Nur minimalen Compile-Fix durchführen.
-- Ersten echten Fehler vollständig melden.
+Erwartung:
+- LoupeHost Build OK
+- LoupeControllerApp iPhone/iPad Build OK
+- WebRTC Embedding OK
+- Native Mac Controller Build OK
 
-## iPhone-Test
+## 3. Host-App direkt aus Xcode starten
 
-1. Alte Loupe App vom iPhone löschen.
-2. Echtes iPhone verwenden, kein Simulator.
-3. `open Loupe.xcworkspace`
-4. `LoupeControllerApp` auf echtes iPhone deployen.
-5. Alte Host-Prozesse stoppen:
+Xcode öffnen:
+
+```bash
+cd ~/Desktop/Loupe
+open Loupe.xcworkspace
+```
+
+In Xcode:
+
+1. Scheme `LoupeHost` wählen.
+2. Destination: `My Mac`.
+3. Product > Scheme > Edit Scheme… öffnen.
+4. Run > Arguments > Arguments Passed On Launch ergänzen:
+
+```text
+--app
+```
+
+5. Product > Run.
+
+Erwartung:
+- Es öffnet sich die SwiftUI-Host-App.
+- Kein Terminal-QR-Pfad ist für den normalen Flow nötig.
+- Bei erteilten Berechtigungen erscheint der Host-Screen.
+- Button `Host starten` ist sichtbar.
+
+## 4. Host Pairing UI testen
+
+In der gestarteten Host-App:
+
+1. Session-ID auf `loupe-beta-session` lassen.
+2. Signaling URL auf `wss://signaling.theloupe.team/ws` lassen.
+3. Auf `Host starten` klicken.
+
+Erwartung:
+- Status wechselt auf `Startet`, danach `Host läuft`.
+- QR-Code erscheint direkt im App-Fenster.
+- Token ist sichtbar.
+- `Token kopieren` funktioniert.
+- `QR speichern` funktioniert.
+
+## 5. iPhone/iPad Controller mit Xcode deployen
+
+1. Alte Loupe App vom iPhone/iPad löschen.
+2. Gerät anschließen und entsperren.
+3. Im gleichen Workspace Scheme `LoupeControllerApp` wählen.
+4. Destination: echtes iPhone oder iPad.
+5. Signing Team prüfen.
+6. Product > Run.
+
+## 6. End-to-End-Test
+
+Auf dem iPhone/iPad:
+
+1. LoupeControllerApp öffnen.
+2. `Scan QR code` wählen.
+3. QR-Code direkt aus dem Host-App-Fenster scannen.
+
+Bitte testen:
+
+- QR Scan OK/NOK
+- Verbindung OK/NOK
+- Video live OK/NOK
+- Touch OK/NOK
+- Trackpad OK/NOK
+- Scroll OK/NOK
+- Keyboard Panel OK/NOK
+- Auto-Reconnect OK/NOK
+
+## 7. Packaged Host-App optional bauen
+
+Für eine echte `.app` unter `/Applications`:
+
+```bash
+cd ~/Desktop/Loupe
+rm -rf /Applications/LoupeHost.app
+./scripts/build-host-app.sh --out /Applications
+open /Applications/LoupeHost.app
+```
+
+Wichtig: `build-host-app.sh` akzeptiert den Zielordner nur über `--out`. Ein direkter Zielpfad als erstes Argument ist ungültig.
+
+Falls `/Applications` wegen Rechten fehlschlägt:
+
+```bash
+cd ~/Desktop/Loupe
+./scripts/build-host-app.sh --out "$HOME/Desktop"
+open "$HOME/Desktop/LoupeHost.app"
+```
+
+## 8. CLI Regression testen
+
+CLI bleibt Entwickler-/Fallback-Weg:
 
 ```bash
 pkill -f LoupeHost || true
+cd ~/Desktop/Loupe/loupe-host-macos
+swift run LoupeHost --cli
 ```
 
-6. LoupeHost wie beim letzten erfolgreichen Test starten.
-7. QR öffnen:
+Erwartung:
+- CLI startet weiterhin.
+- Pairing Token wird ausgegeben.
+- QR PNG wird weiterhin in `$TMPDIR` geschrieben.
+- `Host running. Press Ctrl-C to stop.` erscheint.
 
-```bash
-./scripts/open-host-qr.sh loupe-beta-session
-```
+## 9. Bericht
 
-8. QR scannen und verbinden.
+Bitte melden:
 
-## Regressionstest
+A) Git:
+- Branch
+- Commit SHA
+- lokale Änderungen JA/NEIN
 
-Bitte exakt testen und melden:
+B) Xcode Host:
+- Scheme `LoupeHost` sichtbar OK/NOK
+- Run Argument `--app` gesetzt OK/NOK
+- Host UI startet OK/NOK
+- Host starten Button OK/NOK
+- Status `Host läuft` OK/NOK
+- QR sichtbar OK/NOK
+- Token sichtbar OK/NOK
 
-### Stabilität
-- Verbindung hält 10 Minuten: JA/NEIN
-- Video live nach 10 Minuten: JA/NEIN
-- Touch funktioniert nach 10 Minuten: JA/NEIN
-- Auto-Reconnect weiterhin OK: JA/NEIN
-- `ice state=closed` ohne manuellen Disconnect: JA/NEIN
-- `peer state=closed` ohne manuellen Disconnect: JA/NEIN
+C) iPhone/iPad:
+- QR Scan OK/NOK
+- Verbindung OK/NOK
+- Video live OK/NOK
+- Touch/Trackpad/Scroll/Keyboard OK/NOK
 
-### v3.7.2 Product-Control
-- Direct Touch bewegt Cursor absolut: OK/NOK
-- Trackpad Mode bewegt Cursor relativ: OK/NOK
-- Scroll Mode funktioniert: OK/NOK
-- Keyboard Panel öffnet stabil: OK/NOK
-- Clipboard Text senden: OK/NOK
-- Cmd+A/C/V/W/Q/F Shortcuts senden Events: OK/NOK
-- FPS wird im HUD angezeigt: OK/NOK
-- Session-Uptime wird im HUD angezeigt: OK/NOK
+D) CLI Regression:
+- `swift run LoupeHost --cli` OK/NOK
 
-### Diagnostics/Logs
-- `estimatedFramesPerSecond` im Diagnostics Report: JA/NEIN
-- `sessionUptimeSeconds` im Diagnostics Report: JA/NEIN
-- Host loggt `mouseDelta`: JA/NEIN
-- Host loggt Keyboard Events: JA/NEIN
-- Host loggt Scroll Events: JA/NEIN
-
-Wichtig:
-- Keine Simulator-Tests.
-- Keine neuen Features während des Tests.
-- Falls ein Abbruch auftritt: vollständige Host Logs + Controller Diagnostics sichern.
+E) Erster echter Fehler, falls vorhanden:
+- vollständiger Logauszug
+- Screenshot, falls UI betroffen

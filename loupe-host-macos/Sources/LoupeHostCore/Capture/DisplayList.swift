@@ -140,18 +140,21 @@ public enum DisplayList {
 
     // MARK: - Internal helpers
 
-    /// Best-effort display name. Apple's public ScreenCaptureKit
-    /// API does not expose a display name directly, so we fall
-    /// back to a positional label.
+    /// Best-effort display name.
+    ///
+    /// Do not use Key-Value Coding on `SCDisplay`. On recent
+    /// macOS builds, `value(forKey: "name")` raises an
+    /// Objective-C `NSUnknownKeyException`, which Swift cannot
+    /// catch with `do/catch` and which aborts the host at
+    /// runtime before screen capture starts. ScreenCaptureKit's
+    /// public API gives us a stable `displayID`, so we expose a
+    /// deterministic fallback label instead.
     private static func displayName(for display: SCDisplay) -> String {
-        // SCDisplay does not expose `name` directly. We use
-        // a positional label so the iOS picker still has
-        // something useful. The host UI will show "(no name
-        // reported by macOS)" if the user wants more detail.
-        if let name = display.value(forKey: "name") as? String, !name.isEmpty {
-            return name
+        let displayID = display.displayID
+        if displayID == CGDirectDisplayID(CGMainDisplayID()) {
+            return "Main Display \(displayID)"
         }
-        return "Display \(display.displayID)"
+        return "Display \(displayID)"
     }
 
     /// Backing scale factor. For most external displays this

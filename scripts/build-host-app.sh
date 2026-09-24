@@ -13,6 +13,11 @@
 # bundle somewhere other than build/host-app/), and a codesign
 # --verify sanity check at the end. Sprint 7's libwebrtc rpath
 # fix is unchanged.
+#
+# v3.12.1 packaging hotfix:
+# - Do not fail the build when Pillow/PIL is missing; skip AppIcon instead.
+# - Do not create a launch-crashing app when WebRTC.framework is missing.
+#   LoupeHost links WebRTC dynamically, so the framework is mandatory.
 
 set -euo pipefail
 
@@ -33,7 +38,7 @@ SIGN_ID=""
 PRODUCE_DMG=0
 
 usage() {
-  sed -n '2,28p' "$0" 2>/dev/null || cat <<EOF
+  sed -n '2,32p' "$0" 2>/dev/null || cat <<EOF
 Usage: $0 [--debug] [--out PATH] [--sign-id "Developer ID Application: ..."]
           [--dmg] [--version X.Y.Z] [--build-number N]
 EOF
@@ -82,15 +87,16 @@ fi
 # ---------------------------------------------------------------------------
 # 2. Locate WebRTC.framework
 # ---------------------------------------------------------------------------
-# The Swift package depends on WebRTC via SwiftPM (binaryTarget on
-# WebRTC.xcframework). The resolved framework for the host platform
-# ends up in .build/out/Products/Release, but the exact name varies
-# across machines. Pick whichever exists first.
+# LoupeHost links WebRTC.framework dynamically. If it is not embedded in
+# Contents/Frameworks and the binary has @rpath/WebRTC.framework/WebRTC,
+# dyld terminates at app launch. Therefore this is a hard requirement for
+# app-bundle packaging, not a warning.
 WEBRTC_FRAMEWORK=""
 for candidate in \
     "$HOST_PKG/.build/out/Products/$CONFIG/WebRTC.framework" \
     "$HOST_PKG/.build/$CONFIG/WebRTC.framework" \
-    "$HOST_PKG/.build/artifacts/webrtc/WebRTC/WebRTC.xcframework/macos-x86_64_arm64/WebRTC.framework"
+    "$HOST_PKG/.build/artifacts/webrtc/WebRTC/WebRTC.xcframework/macos-x86_64_arm64/WebRTC.framework" \
+    "$HOST_PKG/.build/artifacts/webrtc/WebRTC/WebRTC.xcframework/macos-arm64_x86_64/WebRTC.framework"
 do
     if [[ -d "$candidate" ]]; then
         WEBRTC_FRAMEWORK="$candidate"
@@ -99,13 +105,19 @@ do
 done
 
 if [[ -z "$WEBRTC_FRAMEWORK" ]]; then
-  echo "warning: WebRTC.framework not found in any known location."
-  echo "         searched:"
-  echo "           $HOST_PKG/.build/out/Products/$CONFIG/WebRTC.framework"
-  echo "           $HOST_PKG/.build/$CONFIG/WebRTC.framework"
-  echo "           $HOST_PKG/.build/artifacts/webrtc/.../WebRTC.framework"
-  echo "         the host will still launch but WebRTC calls will fail."
+  WEBRTC_FRAMEWORK="$(find "$HOST_PKG/.build" -type d -name WebRTC.framework -print -quit 2>/dev/null || true)"
 fi
+
+if [[ -z "$WEBRTC_FRAMEWORK" || ! -d "$WEBRTC_FRAMEWORK" ]]; then
+  echo "error: WebRTC.framework not found." >&2
+  echo "       LoupeHost links @rpath/WebRTC.framework/WebRTC, so a .app without" >&2
+  echo "       Contents/Frameworks/WebRTC.framework will crash at launch." >&2
+  echo "       Run this diagnostic and send the output if it still fails:" >&2
+  echo "         find '$HOST_PKG/.build' -type d -name WebRTC.framework -print" >&2
+  exit 1
+fi
+
+echo "==> WebRTC.framework: $WEBRTC_FRAMEWORK"
 
 # ---------------------------------------------------------------------------
 # 3. Assemble the .app bundle
@@ -119,17 +131,18 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 cp "$BIN" "$APP_BUNDLE/Contents/MacOS/LoupeHost"
 chmod +x "$APP_BUNDLE/Contents/MacOS/LoupeHost"
 
-if [[ -n "$WEBRTC_FRAMEWORK" ]]; then
-    # rsync preserves symlinks better than cp -R (WebRTC ships with
-    # Versions/Current -> A symlinks that cp -R flattens).
-    rsync -a --delete "$WEBRTC_FRAMEWORK/" "$APP_BUNDLE/Contents/Frameworks/WebRTC.framework/"
-fi
+# rsync preserves symlinks better than cp -R (WebRTC ships with
+# Versions/Current -> A symlinks that cp -R flattens).
+rsync -a --delete "$WEBRTC_FRAMEWORK/" "$APP_BUNDLE/Contents/Frameworks/WebRTC.framework/"
 
-# Sprint 11: build the AppIcon.icns from the master PNG. We do this
-# before generating Info.plist so the plist can include
-# CFBundleIconFile pointing at it.
+# Sprint 11: build the AppIcon.icns from the master PNG. Pillow is a
+# convenience dependency used only for icon generation. Missing Pillow must
+# not break functional developer builds.
 ICON_DIR="$BUILD_DIR/host-app-icon"
-if [[ -f "$REPO_ROOT/scripts/build-host-icon.py" ]]; then
+if [[ -f "$REPO_ROOT/scripts/build-host-icon.py" ]] && python3 - <<'PY' >/dev/null 2>&1
+import PIL
+PY
+then
   echo "==> generating AppIcon.icns (sprint 11)"
   rm -rf "$ICON_DIR"
   python3 "$REPO_ROOT/scripts/build-host-icon.py" --out-dir "$ICON_DIR" --size 1024
@@ -152,7 +165,9 @@ if [[ -f "$REPO_ROOT/scripts/build-host-icon.py" ]]; then
   cp "$ICON_DIR/icon_1024.png" "$ICONSET/icon_512x512@2x.png"
   /usr/bin/iconutil --convert icns "$ICONSET" --output "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 else
-  echo "warning: scripts/build-host-icon.py not found; bundle will be icon-less."
+  echo "warning: Pillow/PIL unavailable or icon script missing; skipping AppIcon.icns."
+  echo "         Functional host app build continues. Install Pillow only for release icon builds:"
+  echo "         python3 -m pip install --user pillow"
 fi
 
 cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
@@ -213,19 +228,22 @@ printf "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
 BIN_PATH="$APP_BUNDLE/Contents/MacOS/LoupeHost"
 APP_FRAMEWORKS="$APP_BUNDLE/Contents/Frameworks"
 
-if [[ -d "$APP_FRAMEWORKS/WebRTC.framework" ]]; then
-  # Sprint 7 fix: the SwiftPM-built binary embeds
-  # `@rpath/WebRTC.framework/WebRTC` as the link reference but only
-  # sets @loader_path (i.e. Contents/MacOS/). dyld then looks for
-  # WebRTC in Contents/MacOS/WebRTC.framework/ and crashes at launch
-  # with "Library not loaded". Add the standard Apple-bundle rpath
-  # that points one directory up into Contents/Frameworks, where we
-  # just copied the framework. This must happen *before* codesign,
-  # because modifying the binary invalidates the signature.
-  if ! otool -l "$BIN_PATH" | grep -q "@executable_path/../Frameworks"; then
-    echo "==> adding @executable_path/../Frameworks rpath"
-    install_name_tool -add_rpath "@executable_path/../Frameworks" "$BIN_PATH" 2>&1 | sed 's/^/    /' || true
-  fi
+if [[ ! -d "$APP_FRAMEWORKS/WebRTC.framework" ]]; then
+  echo "error: WebRTC.framework was not embedded into $APP_FRAMEWORKS" >&2
+  exit 1
+fi
+
+# Sprint 7 fix: the SwiftPM-built binary embeds
+# `@rpath/WebRTC.framework/WebRTC` as the link reference but only
+# sets @loader_path (i.e. Contents/MacOS/). dyld then looks for
+# WebRTC in Contents/MacOS/WebRTC.framework/ and crashes at launch
+# with "Library not loaded". Add the standard Apple-bundle rpath
+# that points one directory up into Contents/Frameworks, where we
+# just copied the framework. This must happen *before* codesign,
+# because modifying the binary invalidates the signature.
+if ! otool -l "$BIN_PATH" | grep -q "@executable_path/../Frameworks"; then
+  echo "==> adding @executable_path/../Frameworks rpath"
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$BIN_PATH" 2>&1 | sed 's/^/    /' || true
 fi
 
 if [[ -n "$SIGN_ID" ]]; then
@@ -241,9 +259,7 @@ else
   # Ad-hoc signing so the bundle is launchable on the build machine
   # even on Gatekeeper-strict hosts. Not for distribution.
   echo "==> ad-hoc codesign"
-  if [[ -d "$APP_FRAMEWORKS/WebRTC.framework" ]]; then
-    codesign --force --sign - "$APP_BUNDLE/Contents/Frameworks/WebRTC.framework" 2>&1 | sed 's/^/    /' || true
-  fi
+  codesign --force --sign - "$APP_BUNDLE/Contents/Frameworks/WebRTC.framework" 2>&1 | sed 's/^/    /' || true
   codesign --force --sign - "$BIN_PATH" 2>&1 | sed 's/^/    /' || true
   codesign --force --sign - "$APP_BUNDLE" 2>&1 | sed 's/^/    /'
 
@@ -257,6 +273,15 @@ else
     echo "    FAILED — see lines above" >&2
     exit 1
   fi
+fi
+
+# Verify the dynamic loader can resolve WebRTC from the finished bundle.
+if ! otool -L "$BIN_PATH" | grep -q '@rpath/WebRTC.framework/WebRTC'; then
+  echo "warning: LoupeHost binary did not list WebRTC as @rpath dependency."
+fi
+if ! otool -l "$BIN_PATH" | grep -q "@executable_path/../Frameworks"; then
+  echo "error: missing @executable_path/../Frameworks rpath after packaging" >&2
+  exit 1
 fi
 
 # ---------------------------------------------------------------------------
