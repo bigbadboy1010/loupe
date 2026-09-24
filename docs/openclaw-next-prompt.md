@@ -1,6 +1,6 @@
 # OpenClaw Prompt — Loupe v3.12 Host Pairing UI
 
-Ziel: aktuellen GitHub-Stand synchronisieren, Host Pairing UI bauen und End-to-End mit iPhone/iPad testen.
+Ziel: aktuellen GitHub-Stand synchronisieren, Host Pairing UI direkt in Xcode starten und End-to-End mit iPhone/iPad testen.
 
 Branch:
 `chore/docs-ui-polish-v3-11`
@@ -12,7 +12,7 @@ Wichtig:
 - Kein Server-Redeploy.
 - Keine Signaling-/SDP-/ICE-/TURN-Änderungen.
 - Keine WebRTC-Core-Änderungen.
-- Fokus: `LoupeHost.app` zeigt QR/Token direkt und startet die echte HostSession.
+- Fokus: Host-Pairing-UI ist direkt aus Xcode startbar und zeigt QR/Token in der App.
 
 ## 1. Repository synchronisieren
 
@@ -55,33 +55,37 @@ Erwartung:
 - WebRTC Embedding OK
 - Native Mac Controller Build OK
 
-## 3. Host-App bauen und starten
+## 3. Host-App direkt aus Xcode starten
 
-Wichtig: `build-host-app.sh` akzeptiert den Zielordner nur über `--out`. Ein direkter Zielpfad als erstes Argument ist ungültig.
-
-```bash
-cd ~/Desktop/Loupe
-./scripts/build-host-app.sh --out /Applications
-open /Applications/LoupeHost.app
-```
-
-Falls `/Applications` wegen Rechten fehlschlägt, lokal auf dem Desktop bauen und danach öffnen:
+Xcode öffnen:
 
 ```bash
 cd ~/Desktop/Loupe
-./scripts/build-host-app.sh --out "$HOME/Desktop"
-open "$HOME/Desktop/LoupeHost.app"
+open Loupe.xcworkspace
 ```
+
+In Xcode:
+
+1. Scheme `LoupeHost` wählen.
+2. Destination: `My Mac`.
+3. Product > Scheme > Edit Scheme… öffnen.
+4. Run > Arguments > Arguments Passed On Launch ergänzen:
+
+```text
+--app
+```
+
+5. Product > Run.
 
 Erwartung:
-- `LoupeHost.app` öffnet ein GUI-Fenster.
-- Berechtigungen werden angezeigt, falls sie fehlen.
+- Es öffnet sich die SwiftUI-Host-App.
+- Kein Terminal-QR-Pfad ist für den normalen Flow nötig.
 - Bei erteilten Berechtigungen erscheint der Host-Screen.
 - Button `Host starten` ist sichtbar.
 
 ## 4. Host Pairing UI testen
 
-In `LoupeHost.app`:
+In der gestarteten Host-App:
 
 1. Session-ID auf `loupe-beta-session` lassen.
 2. Signaling URL auf `wss://signaling.theloupe.team/ws` lassen.
@@ -93,22 +97,15 @@ Erwartung:
 - Token ist sichtbar.
 - `Token kopieren` funktioniert.
 - `QR speichern` funktioniert.
-- Kein Terminal ist für den normalen Flow nötig.
 
-## 5. iPhone/iPad Controller deployen
+## 5. iPhone/iPad Controller mit Xcode deployen
 
 1. Alte Loupe App vom iPhone/iPad löschen.
 2. Gerät anschließen und entsperren.
-3. Xcode öffnen:
-
-```bash
-open Loupe.xcworkspace
-```
-
-4. Scheme `LoupeControllerApp` wählen.
-5. Destination: echtes iPhone oder iPad.
-6. Signing Team prüfen.
-7. Product > Run.
+3. Im gleichen Workspace Scheme `LoupeControllerApp` wählen.
+4. Destination: echtes iPhone oder iPad.
+5. Signing Team prüfen.
+6. Product > Run.
 
 ## 6. End-to-End-Test
 
@@ -116,7 +113,7 @@ Auf dem iPhone/iPad:
 
 1. LoupeControllerApp öffnen.
 2. `Scan QR code` wählen.
-3. QR-Code direkt aus dem `LoupeHost.app` Fenster scannen.
+3. QR-Code direkt aus dem Host-App-Fenster scannen.
 
 Bitte testen:
 
@@ -129,7 +126,28 @@ Bitte testen:
 - Keyboard Panel OK/NOK
 - Auto-Reconnect OK/NOK
 
-## 7. CLI Regression testen
+## 7. Packaged Host-App optional bauen
+
+Für eine echte `.app` unter `/Applications`:
+
+```bash
+cd ~/Desktop/Loupe
+rm -rf /Applications/LoupeHost.app
+./scripts/build-host-app.sh --out /Applications
+open /Applications/LoupeHost.app
+```
+
+Wichtig: `build-host-app.sh` akzeptiert den Zielordner nur über `--out`. Ein direkter Zielpfad als erstes Argument ist ungültig.
+
+Falls `/Applications` wegen Rechten fehlschlägt:
+
+```bash
+cd ~/Desktop/Loupe
+./scripts/build-host-app.sh --out "$HOME/Desktop"
+open "$HOME/Desktop/LoupeHost.app"
+```
+
+## 8. CLI Regression testen
 
 CLI bleibt Entwickler-/Fallback-Weg:
 
@@ -145,19 +163,6 @@ Erwartung:
 - QR PNG wird weiterhin in `$TMPDIR` geschrieben.
 - `Host running. Press Ctrl-C to stop.` erscheint.
 
-## 8. Native Mac Controller Packaging optional prüfen
-
-```bash
-cd ~/Desktop/Loupe
-./scripts/build-mac-controller-app.sh /Applications/LoupeControllerMacApp.app
-./scripts/verify-mac-controller-webrtc-embedding.sh /Applications/LoupeControllerMacApp.app
-open /Applications/LoupeControllerMacApp.app
-```
-
-Erwartung:
-- kein DYLD-WebRTC-Crash
-- Token-UI sichtbar
-
 ## 9. Bericht
 
 Bitte melden:
@@ -167,15 +172,14 @@ A) Git:
 - Commit SHA
 - lokale Änderungen JA/NEIN
 
-B) Host-App:
-- Build OK/NOK
-- App startet OK/NOK
+B) Xcode Host:
+- Scheme `LoupeHost` sichtbar OK/NOK
+- Run Argument `--app` gesetzt OK/NOK
+- Host UI startet OK/NOK
 - Host starten Button OK/NOK
 - Status `Host läuft` OK/NOK
 - QR sichtbar OK/NOK
 - Token sichtbar OK/NOK
-- Token kopieren OK/NOK
-- QR speichern OK/NOK
 
 C) iPhone/iPad:
 - QR Scan OK/NOK
