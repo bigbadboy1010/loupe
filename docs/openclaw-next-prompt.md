@@ -1,91 +1,136 @@
-# OpenClaw Prompt — Loupe v3.7.2 Product Control Polish
+# OpenClaw Prompt — Loupe v3.11 UI polish and repo sync
 
-Bitte ersetze Loupe durch v3.7.2 und teste gezielt Product-Control ohne Server-Änderungen.
+Ziel: aktuellen GitHub-Stand synchronisieren, Builds prüfen, UI-Polish regressionsfrei testen und iPhone/iPad/Mac-Controller Deployment vorbereiten.
 
-Neue ZIP:
-`~/Desktop/Loupe_v3_7_2_product_control_polish.zip`
+Branch:
+`chore/docs-ui-polish-v3-11`
 
 Aktueller Projektpfad:
 `~/Desktop/Loupe`
 
 Wichtig:
-- v3.7.2 baut auf v3.7.1 stable auf.
-- Kein Server-Redeploy nötig.
-- Kein Signaling-/SDP-/ICE-/TURN-Refactoring.
-- v3.6/v3.7.1 Stability/Reconnect-Core muss erhalten bleiben.
+- Kein Server-Redeploy.
+- Keine Signaling-/SDP-/ICE-/TURN-Änderungen.
+- Keine WebRTC-Core-Änderungen.
+- Fokus: README/Doku-Konsolidierung, Accent/Brand-Tokens, UI-Polish-Regression.
 
-## Schritte
+## 1. Repository synchronisieren
 
 ```bash
 cd ~/Desktop
-mv Loupe Loupe_backup_before_v3_7_2_$(date +%Y%m%d_%H%M%S)
-unzip ~/Desktop/Loupe_v3_7_2_product_control_polish.zip -d ~/Desktop
+
+if [ ! -d Loupe/.git ]; then
+  git clone https://github.com/bigbadboy1010/loupe.git Loupe
+fi
+
+cd ~/Desktop/Loupe
+git fetch origin
+git checkout chore/docs-ui-polish-v3-11
+git pull --ff-only origin chore/docs-ui-polish-v3-11
+```
+
+Falls lokale Änderungen vorhanden sind:
+
+```bash
+git status --short
+git stash push -u -m "local-before-v3.11-ui-polish" || true
+git pull --ff-only origin chore/docs-ui-polish-v3-11
+```
+
+## 2. Checks ausführen
+
+```bash
 cd ~/Desktop/Loupe
 chmod +x scripts/*.sh
 
 ./scripts/loupe-doctor.sh
 ./scripts/run-xcode-builds.sh
 ./scripts/verify-ios-webrtc-embedding.sh
+./scripts/run-controller-platform-builds.sh
 ```
 
-Falls Buildfehler auftreten:
-- Keine Architektur umbauen.
-- Keine WebRTC-Core-Änderungen.
-- Keine Server-Änderungen.
-- Nur minimalen Compile-Fix durchführen.
-- Ersten echten Fehler vollständig melden.
+Erwartung:
+- LoupeHost Build OK
+- LoupeControllerApp iPhone/iPad Build OK
+- WebRTC Embedding OK
+- Native Mac Controller Build OK
 
-## iPhone-Test
+## 3. iPhone Deployment
 
 1. Alte Loupe App vom iPhone löschen.
-2. Echtes iPhone verwenden, kein Simulator.
-3. `open Loupe.xcworkspace`
-4. `LoupeControllerApp` auf echtes iPhone deployen.
-5. Alte Host-Prozesse stoppen:
+2. Echtes iPhone anschließen und entsperren.
+3. Xcode öffnen:
+
+```bash
+open Loupe.xcworkspace
+```
+
+4. Scheme `LoupeControllerApp` wählen.
+5. Destination: echtes iPhone.
+6. Signing Team prüfen.
+7. Product > Run.
+
+## 4. Host starten
 
 ```bash
 pkill -f LoupeHost || true
+cd ~/Desktop/Loupe/loupe-host-macos
+swift run LoupeHost
 ```
 
-6. LoupeHost wie beim letzten erfolgreichen Test starten.
-7. QR öffnen:
+In zweitem Terminal:
 
 ```bash
-./scripts/open-host-qr.sh loupe-beta-session
+cd ~/Desktop/Loupe
+./scripts/open-host-qr.sh loupe-beta-session || ./scripts/open-host-qr.sh loupe-dev-session
 ```
 
-8. QR scannen und verbinden.
+## 5. UI-Polish Regression
 
-## Regressionstest
+Bitte testen und melden:
 
-Bitte exakt testen und melden:
+### Optik
+- Accent-Farbe wirkt besser: JA/NEIN
+- Onboarding wirkt weniger technisch: JA/NEIN
+- Hauptaktion klar erkennbar: JA/NEIN
+- Dark/Light Mode akzeptabel: JA/NEIN
+- Remote-Screen bleibt visuell im Fokus: JA/NEIN
+
+### Funktion
+- QR Scan OK/NOK
+- Video live OK/NOK
+- Touch OK/NOK
+- Trackpad OK/NOK
+- Scroll OK/NOK
+- Keyboard Panel OK/NOK
+- Auto-Reconnect OK/NOK
+- Diagnostics Copy OK/NOK
 
 ### Stabilität
-- Verbindung hält 10 Minuten: JA/NEIN
-- Video live nach 10 Minuten: JA/NEIN
-- Touch funktioniert nach 10 Minuten: JA/NEIN
-- Auto-Reconnect weiterhin OK: JA/NEIN
+- 10-Minuten-Test OK/NOK
 - `ice state=closed` ohne manuellen Disconnect: JA/NEIN
 - `peer state=closed` ohne manuellen Disconnect: JA/NEIN
 
-### v3.7.2 Product-Control
-- Direct Touch bewegt Cursor absolut: OK/NOK
-- Trackpad Mode bewegt Cursor relativ: OK/NOK
-- Scroll Mode funktioniert: OK/NOK
-- Keyboard Panel öffnet stabil: OK/NOK
-- Clipboard Text senden: OK/NOK
-- Cmd+A/C/V/W/Q/F Shortcuts senden Events: OK/NOK
-- FPS wird im HUD angezeigt: OK/NOK
-- Session-Uptime wird im HUD angezeigt: OK/NOK
+## 6. Native Mac Controller Packaging
 
-### Diagnostics/Logs
-- `estimatedFramesPerSecond` im Diagnostics Report: JA/NEIN
-- `sessionUptimeSeconds` im Diagnostics Report: JA/NEIN
-- Host loggt `mouseDelta`: JA/NEIN
-- Host loggt Keyboard Events: JA/NEIN
-- Host loggt Scroll Events: JA/NEIN
+```bash
+cd ~/Desktop/Loupe
+./scripts/build-mac-controller-app.sh /Applications/LoupeControllerMacApp.app
+./scripts/verify-mac-controller-webrtc-embedding.sh /Applications/LoupeControllerMacApp.app
+open /Applications/LoupeControllerMacApp.app
+```
 
-Wichtig:
-- Keine Simulator-Tests.
-- Keine neuen Features während des Tests.
-- Falls ein Abbruch auftritt: vollständige Host Logs + Controller Diagnostics sichern.
+Erwartung:
+- kein DYLD-WebRTC-Crash
+- Token-UI sichtbar
+
+## 7. Bericht
+
+Bitte melden:
+- Git Commit/Branch
+- Build-Ergebnisse
+- iPhone Deployment OK/NOK
+- UI-Eindruck nach Accent-/Doku-Polish
+- iPhone Regression OK/NOK
+- Mac Controller Packaging OK/NOK
+- erster echter Fehler, falls vorhanden
