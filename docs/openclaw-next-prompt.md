@@ -1,6 +1,6 @@
-# OpenClaw Prompt — Loupe v3.11 UI polish and repo sync
+# OpenClaw Prompt — Loupe v3.12 Host Pairing UI
 
-Ziel: aktuellen GitHub-Stand synchronisieren, Builds prüfen, UI-Polish regressionsfrei testen und iPhone/iPad/Mac-Controller Deployment vorbereiten.
+Ziel: aktuellen GitHub-Stand synchronisieren, Host Pairing UI bauen und End-to-End mit iPhone/iPad testen.
 
 Branch:
 `chore/docs-ui-polish-v3-11`
@@ -12,7 +12,7 @@ Wichtig:
 - Kein Server-Redeploy.
 - Keine Signaling-/SDP-/ICE-/TURN-Änderungen.
 - Keine WebRTC-Core-Änderungen.
-- Fokus: README/Doku-Konsolidierung, Accent/Brand-Tokens, UI-Polish-Regression.
+- Fokus: `LoupeHost.app` zeigt QR/Token direkt und startet die echte HostSession.
 
 ## 1. Repository synchronisieren
 
@@ -33,11 +33,11 @@ Falls lokale Änderungen vorhanden sind:
 
 ```bash
 git status --short
-git stash push -u -m "local-before-v3.11-ui-polish" || true
+git stash push -u -m "local-before-v3.12-host-pairing-ui" || true
 git pull --ff-only origin chore/docs-ui-polish-v3-11
 ```
 
-## 2. Checks ausführen
+## 2. Build-Checks ausführen
 
 ```bash
 cd ~/Desktop/Loupe
@@ -55,10 +55,40 @@ Erwartung:
 - WebRTC Embedding OK
 - Native Mac Controller Build OK
 
-## 3. iPhone Deployment
+## 3. Host-App bauen und starten
 
-1. Alte Loupe App vom iPhone löschen.
-2. Echtes iPhone anschließen und entsperren.
+```bash
+cd ~/Desktop/Loupe
+./scripts/build-host-app.sh /Applications/LoupeHost.app
+open /Applications/LoupeHost.app
+```
+
+Erwartung:
+- `LoupeHost.app` öffnet ein GUI-Fenster.
+- Berechtigungen werden angezeigt, falls sie fehlen.
+- Bei erteilten Berechtigungen erscheint der Host-Screen.
+- Button `Host starten` ist sichtbar.
+
+## 4. Host Pairing UI testen
+
+In `LoupeHost.app`:
+
+1. Session-ID auf `loupe-beta-session` lassen.
+2. Signaling URL auf `wss://signaling.theloupe.team/ws` lassen.
+3. Auf `Host starten` klicken.
+
+Erwartung:
+- Status wechselt auf `Startet`, danach `Host läuft`.
+- QR-Code erscheint direkt im App-Fenster.
+- Token ist sichtbar.
+- `Token kopieren` funktioniert.
+- `QR speichern` funktioniert.
+- Kein Terminal ist für den normalen Flow nötig.
+
+## 5. iPhone/iPad Controller deployen
+
+1. Alte Loupe App vom iPhone/iPad löschen.
+2. Gerät anschließen und entsperren.
 3. Xcode öffnen:
 
 ```bash
@@ -66,52 +96,46 @@ open Loupe.xcworkspace
 ```
 
 4. Scheme `LoupeControllerApp` wählen.
-5. Destination: echtes iPhone.
+5. Destination: echtes iPhone oder iPad.
 6. Signing Team prüfen.
 7. Product > Run.
 
-## 4. Host starten
+## 6. End-to-End-Test
 
-```bash
-pkill -f LoupeHost || true
-cd ~/Desktop/Loupe/loupe-host-macos
-swift run LoupeHost
-```
+Auf dem iPhone/iPad:
 
-In zweitem Terminal:
+1. LoupeControllerApp öffnen.
+2. `Scan QR code` wählen.
+3. QR-Code direkt aus dem `LoupeHost.app` Fenster scannen.
 
-```bash
-cd ~/Desktop/Loupe
-./scripts/open-host-qr.sh loupe-beta-session || ./scripts/open-host-qr.sh loupe-dev-session
-```
+Bitte testen:
 
-## 5. UI-Polish Regression
-
-Bitte testen und melden:
-
-### Optik
-- Accent-Farbe wirkt besser: JA/NEIN
-- Onboarding wirkt weniger technisch: JA/NEIN
-- Hauptaktion klar erkennbar: JA/NEIN
-- Dark/Light Mode akzeptabel: JA/NEIN
-- Remote-Screen bleibt visuell im Fokus: JA/NEIN
-
-### Funktion
 - QR Scan OK/NOK
+- Verbindung OK/NOK
 - Video live OK/NOK
 - Touch OK/NOK
 - Trackpad OK/NOK
 - Scroll OK/NOK
 - Keyboard Panel OK/NOK
 - Auto-Reconnect OK/NOK
-- Diagnostics Copy OK/NOK
 
-### Stabilität
-- 10-Minuten-Test OK/NOK
-- `ice state=closed` ohne manuellen Disconnect: JA/NEIN
-- `peer state=closed` ohne manuellen Disconnect: JA/NEIN
+## 7. CLI Regression testen
 
-## 6. Native Mac Controller Packaging
+CLI bleibt Entwickler-/Fallback-Weg:
+
+```bash
+pkill -f LoupeHost || true
+cd ~/Desktop/Loupe/loupe-host-macos
+swift run LoupeHost --cli
+```
+
+Erwartung:
+- CLI startet weiterhin.
+- Pairing Token wird ausgegeben.
+- QR PNG wird weiterhin in `$TMPDIR` geschrieben.
+- `Host running. Press Ctrl-C to stop.` erscheint.
+
+## 8. Native Mac Controller Packaging optional prüfen
 
 ```bash
 cd ~/Desktop/Loupe
@@ -124,13 +148,34 @@ Erwartung:
 - kein DYLD-WebRTC-Crash
 - Token-UI sichtbar
 
-## 7. Bericht
+## 9. Bericht
 
 Bitte melden:
-- Git Commit/Branch
-- Build-Ergebnisse
-- iPhone Deployment OK/NOK
-- UI-Eindruck nach Accent-/Doku-Polish
-- iPhone Regression OK/NOK
-- Mac Controller Packaging OK/NOK
-- erster echter Fehler, falls vorhanden
+
+A) Git:
+- Branch
+- Commit SHA
+- lokale Änderungen JA/NEIN
+
+B) Host-App:
+- Build OK/NOK
+- App startet OK/NOK
+- Host starten Button OK/NOK
+- Status `Host läuft` OK/NOK
+- QR sichtbar OK/NOK
+- Token sichtbar OK/NOK
+- Token kopieren OK/NOK
+- QR speichern OK/NOK
+
+C) iPhone/iPad:
+- QR Scan OK/NOK
+- Verbindung OK/NOK
+- Video live OK/NOK
+- Touch/Trackpad/Scroll/Keyboard OK/NOK
+
+D) CLI Regression:
+- `swift run LoupeHost --cli` OK/NOK
+
+E) Erster echter Fehler, falls vorhanden:
+- vollständiger Logauszug
+- Screenshot, falls UI betroffen
