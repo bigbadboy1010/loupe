@@ -57,10 +57,20 @@ Erwartung:
 
 ## 3. Host-App bauen und starten
 
+Wichtig: `build-host-app.sh` akzeptiert den Zielordner nur über `--out`. Ein direkter Zielpfad als erstes Argument ist ungültig.
+
 ```bash
 cd ~/Desktop/Loupe
-./scripts/build-host-app.sh /Applications/LoupeHost.app
+./scripts/build-host-app.sh --out /Applications
 open /Applications/LoupeHost.app
+```
+
+Falls `/Applications` wegen Rechten fehlschlägt, lokal auf dem Desktop bauen und danach öffnen:
+
+```bash
+cd ~/Desktop/Loupe
+./scripts/build-host-app.sh --out "$HOME/Desktop"
+open "$HOME/Desktop/LoupeHost.app"
 ```
 
 Erwartung:
