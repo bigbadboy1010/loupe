@@ -1,25 +1,25 @@
 #if canImport(SwiftUI) && canImport(AppKit)
 import SwiftUI
 import AppKit
+import CoreGraphics
+import ImageIO
+import UniformTypeIdentifiers
 import LoupeHostCore
+import LoupeHostWebRTC
 
-// SwiftUI app-shell for the Loupe macOS host. Used when the host is launched
-/// as a `.app` bundle (the default for the TestFlight-style distribution).
+/// SwiftUI product surface for the Loupe macOS Host.
 ///
-/// Entry-point note: this struct does NOT use the `@main` attribute. The
-/// `EntryPoint.swift` top-level code in this target decides at runtime
-/// whether to dispatch to the SwiftUI scene (bundled launch) or to
-/// `LoupeHostCLI.run()` (CLI launch). Doing it this way keeps a single
-/// executable with two entry paths, instead of forcing two `.app`s or
-/// two SwiftPM products.
+/// The CLI path still lives in `LoupeHostCLI.run(...)`. This file is the
+/// normal customer-facing app path: open `LoupeHost.app`, start the host,
+/// show the QR code, then pair from iPhone/iPad.
 struct LoupeHostApp: App {
     @StateObject private var model = AppModel()
 
     var body: some Scene {
-        WindowGroup("Loupe") {
+        WindowGroup("Loupe Host") {
             RootView()
                 .environmentObject(model)
-                .frame(minWidth: 520, minHeight: 380)
+                .frame(minWidth: 860, minHeight: 620)
         }
         .windowResizability(.contentSize)
         .commands {
@@ -47,34 +47,161 @@ struct LoupeHostApp: App {
 
 @MainActor
 final class AppModel: ObservableObject {
+    enum HostRunState: Equatable {
+        case idle
+        case starting
+        case running
+        case stopping
+        case failed(String)
+
+        var title: String {
+            switch self {
+            case .idle: return "Bereit"
+            case .starting: return "Startet"
+            case .running: return "Host läuft"
+            case .stopping: return "Stoppt"
+            case .failed: return "Fehler"
+            }
+        }
+
+        var isRunning: Bool {
+            if case .running = self { return true }
+            return false
+        }
+
+        var isBusy: Bool {
+            switch self {
+            case .starting, .stopping: return true
+            default: return false
+            }
+        }
+    }
+
     @Published var status: Permissions.Status = Permissions.current()
-    @Published var pairings: [PairingView] = []
+    @Published var pairing: PairingView?
+    @Published var runState: HostRunState = .idle
     @Published var lastError: String?
 
+    private var hostSession: HostSession?
+
     func refreshPermissions() async {
-        // The macOS APIs (CGPreflightScreenCaptureAccess, AXIsProcessTrusted)
-        // return their cached value until the system updates the TCC database.
-        // Polling at 2s is sufficient; the user does not need millisecond
-        // feedback when they click "Allow" in System Settings.
         status = Permissions.current()
     }
 
-    private struct PollingKey: Hashable {}
+    func startHost(sessionId rawSessionId: String, signaling rawSignalingURL: String) async {
+        guard !runState.isBusy else { return }
+        await refreshPermissions()
+        guard status.allGranted else {
+            let missing = [
+                status.screenRecording ? nil : "Bildschirmaufnahme",
+                status.accessibility ? nil : "Bedienungshilfen"
+            ].compactMap { $0 }.joined(separator: ", ")
+            lastError = "Berechtigungen fehlen: \(missing)"
+            runState = .failed(lastError ?? "Berechtigungen fehlen")
+            return
+        }
 
-    func startPollingIfNeeded() {
-        guard !status.allGranted else { return }
-        // SwiftUI views that need polling bind to this via .task { for await _ in model.tickStream }
+        let sessionId = rawSessionId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? HostDefaults.sessionId
+            : rawSessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let signalingString = rawSignalingURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? HostDefaults.signalingURL
+            : rawSignalingURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let signalingURL = URL(string: signalingString) else {
+            lastError = "Ungültige Signaling URL: \(signalingString)"
+            runState = .failed(lastError ?? "Ungültige Signaling URL")
+            return
+        }
+
+        runState = .starting
+        lastError = nil
+
+        do {
+            let identity = try DeviceIdentity.loadOrCreate(
+                storage: KeychainKeyStorage(account: HostDefaults.hostKeychainAccount)
+            )
+            let hostId = "macos-host-\(identity.fingerprint)"
+            let payload = PairingPayload(
+                sessionId: sessionId,
+                hostId: hostId,
+                hostKey: identity.publicKeyBase64URL,
+                signaling: signalingURL.absoluteString
+            )
+            let token = try payload.encodeToToken()
+            guard let qr = QRCodeGenerator.cgImage(forToken: token, scale: 12) else {
+                throw HostAppError.qrGenerationFailed
+            }
+
+            let signaling = SignalingClient(url: signalingURL)
+            #if canImport(WebRTC)
+            let peer: PeerConnection = WebRTCPeerConnection(identity: identity)
+            #else
+            let peer: PeerConnection = NullPeerConnection()
+            #endif
+
+            let host = HostSession(
+                sessionId: sessionId,
+                peerId: hostId,
+                signaling: signaling,
+                peer: peer,
+                displayBounds: CGDisplayBounds(CGMainDisplayID())
+            )
+
+            pairing = PairingView(
+                id: hostId,
+                sessionId: sessionId,
+                hostId: hostId,
+                signalingURL: signalingURL,
+                qrImage: qr,
+                token: token,
+                fingerprint: identity.fingerprint
+            )
+
+            try await host.start()
+            hostSession = host
+            runState = .running
+        } catch {
+            pairing = nil
+            hostSession = nil
+            let message = String(describing: error)
+            lastError = "Host konnte nicht gestartet werden: \(message)"
+            runState = .failed(lastError ?? message)
+        }
+    }
+
+    func stopHost() async {
+        guard !runState.isBusy else { return }
+        runState = .stopping
+        await hostSession?.stop()
+        hostSession = nil
+        runState = .idle
     }
 }
 
-// MARK: - Pairing View (placeholder until HostSession is wired in Phase 8+)
+private enum HostDefaults {
+    static let sessionId = "loupe-beta-session"
+    static let signalingURL = "wss://signaling.theloupe.team/ws"
+    static let hostKeychainAccount = "macos-host"
+}
+
+private enum HostAppError: LocalizedError {
+    case qrGenerationFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .qrGenerationFailed: return "QR-Code konnte nicht erzeugt werden."
+        }
+    }
+}
 
 struct PairingView: Identifiable {
     let id: String
     let sessionId: String
+    let hostId: String
     let signalingURL: URL
     let qrImage: CGImage?
     let token: String
+    let fingerprint: String
 }
 
 // MARK: - Root View
@@ -91,135 +218,169 @@ struct RootView: View {
     }
 }
 
-// MARK: - "Ready" surface (permissions granted)
+// MARK: - Product Host UI
 
 struct ReadyView: View {
     @EnvironmentObject var model: AppModel
-    @State private var sessionId: String = "loupe-beta-session"
-    @State private var signalingURL: String = "wss://signaling.theloupe.team/ws"
-    @State private var pairing: PairingView?
-    @State private var isStarting = false
+    @State private var sessionId: String = HostDefaults.sessionId
+    @State private var signalingURL: String = HostDefaults.signalingURL
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                    .imageScale(.large)
-                Text("Loupe Host bereit")
-                    .font(.title2.bold())
-                Spacer()
-            }
+        ZStack {
+            HostBackground()
 
-            Text("Permissions sind erteilt. Du kannst jetzt einen Pairing-Code für dein iPhone erstellen.")
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 22) {
+                header
 
-            Divider()
-
-            GroupBox("Sitzung") {
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
-                    GridRow {
-                        Text("Session-ID").foregroundColor(.secondary)
-                        TextField("", text: $sessionId)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    GridRow {
-                        Text("Signaling").foregroundColor(.secondary)
-                        TextField("", text: $signalingURL)
-                            .textFieldStyle(.roundedBorder)
-                    }
+                HStack(alignment: .top, spacing: 22) {
+                    hostControlCard
+                        .frame(width: 340)
+                    pairingCard
+                        .frame(minWidth: 420)
                 }
-                .padding(.vertical, 4)
-            }
 
-            HStack {
-                Button {
-                    Task { @MainActor in await startPairing() }
-                } label: {
-                    Label("Pairing-Code erstellen", systemImage: "qrcode")
-                }
-                .disabled(isStarting)
-                if let pairing = pairing {
-                    Button("QR speichern…") { saveQR(pairing) }
-                    Button("In Zwischenablage kopieren") { copy(pairing.token) }
-                }
-                Spacer()
-            }
-
-            if let pairing = pairing {
-                Divider()
-                GroupBox("Pairing") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if let cgImage = pairing.qrImage {
-                            Image(decorative: cgImage, scale: 1.0, orientation: .up)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: 240)
-                        }
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Token").font(.caption).foregroundColor(.secondary)
-                            Text(pairing.token)
-                                .font(.system(.body, design: .monospaced))
-                                .textSelection(.enabled)
-                        }
-                    }
-                    .padding(.vertical, 4)
+                if let error = model.lastError {
+                    ErrorBanner(message: error)
                 }
             }
+            .padding(28)
+        }
+    }
 
-            if let err = model.lastError {
-                Divider()
-                Text(err)
-                    .foregroundColor(.red)
-                    .font(.callout)
+    private var header: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Loupe Host")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                Text("Bereit für iPhone oder iPad")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
-        }
-        .padding(24)
-    }
-
-    private func startPairing() async {
-        isStarting = true
-        defer { isStarting = false }
-        model.lastError = nil
-        do {
-            let identity = try DeviceIdentity.loadOrCreate(
-                storage: KeychainKeyStorage(account: "macos-host")
-            )
-            let hostId = "macos-host-\(identity.fingerprint)"
-            let payload = PairingPayload(
-                sessionId: sessionId,
-                hostId: hostId,
-                hostKey: identity.publicKeyBase64URL,
-                signaling: signalingURL
-            )
-            let token = try payload.encodeToToken()
-            let qr = QRCodeGenerator.cgImage(forToken: token, scale: 12)
-            pairing = PairingView(
-                id: hostId,
-                sessionId: sessionId,
-                signalingURL: URL(string: signalingURL) ?? URL(string: "wss://signaling.theloupe.team/ws")!,
-                qrImage: qr,
-                token: token
-            )
-        } catch {
-            model.lastError = "Pairing fehlgeschlagen: \(error)"
+            HostStatusBadge(state: model.runState)
         }
     }
 
-    private func saveQR(_ pairing: PairingView) {
-        guard let cgImage = pairing.qrImage else { return }
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = "loupe-pairing-\(pairing.sessionId).png"
-        panel.allowedContentTypes = [.png]
-        if panel.runModal() == .OK, let url = panel.url {
-            let dest = CGImageDestinationCreateWithURL(
-                url as CFURL, "public.png" as CFString, 1, nil
-            )
-            if let dest = dest {
-                CGImageDestinationAddImage(dest, cgImage, nil)
-                CGImageDestinationFinalize(dest)
+    private var hostControlCard: some View {
+        ProductCard {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Mac freigeben")
+                        .font(.title2.bold())
+                    Text("Starte den Host und scanne danach den QR-Code mit der Loupe Controller App.")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Session")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    TextField("Session-ID", text: $sessionId)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(model.runState.isRunning || model.runState.isBusy)
+
+                    Text("Signaling")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    TextField("Signaling URL", text: $signalingURL)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(model.runState.isRunning || model.runState.isBusy)
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        Task { @MainActor in
+                            await model.startHost(sessionId: sessionId, signaling: signalingURL)
+                        }
+                    } label: {
+                        Label("Host starten", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(model.runState.isRunning || model.runState.isBusy)
+
+                    Button {
+                        Task { @MainActor in await model.stopHost() }
+                    } label: {
+                        Label("Stoppen", systemImage: "stop.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .disabled(!model.runState.isRunning || model.runState.isBusy)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    TrustBadge(title: "Kein Account", symbol: "person.crop.circle.badge.checkmark")
+                    TrustBadge(title: "Keine Mediencloud", symbol: "icloud.slash")
+                    TrustBadge(title: "WebRTC verschlüsselt", symbol: "lock.shield")
+                }
             }
+        }
+    }
+
+    private var pairingCard: some View {
+        ProductCard {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Pairing")
+                            .font(.title2.bold())
+                        Text(pairingHint)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "qrcode.viewfinder")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let pairing = model.pairing {
+                    HStack(alignment: .top, spacing: 20) {
+                        QRPanel(pairing: pairing)
+                        VStack(alignment: .leading, spacing: 14) {
+                            PairingFact(title: "Session", value: pairing.sessionId)
+                            PairingFact(title: "Host", value: pairing.hostId)
+                            PairingFact(title: "Fingerprint", value: pairing.fingerprint)
+
+                            HStack(spacing: 10) {
+                                Button {
+                                    copy(pairing.token)
+                                } label: {
+                                    Label("Token kopieren", systemImage: "doc.on.doc")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+
+                                Button {
+                                    saveQR(pairing)
+                                } label: {
+                                    Label("QR speichern", systemImage: "square.and.arrow.down")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.bordered)
+                            }
+
+                            TokenPreview(token: pairing.token)
+                        }
+                    }
+                } else {
+                    EmptyPairingView()
+                }
+            }
+        }
+    }
+
+    private var pairingHint: String {
+        switch model.runState {
+        case .running: return "QR mit der Loupe Controller App scannen."
+        case .starting: return "Host startet und erstellt den QR-Code."
+        case .failed: return "Fehler beheben und Host erneut starten."
+        default: return "Host starten, dann erscheint hier der QR-Code."
         }
     }
 
@@ -228,32 +389,238 @@ struct ReadyView: View {
         pb.clearContents()
         pb.setString(token, forType: .string)
     }
+
+    private func saveQR(_ pairing: PairingView) {
+        guard let cgImage = pairing.qrImage else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "loupe-pairing-\(pairing.sessionId).png"
+        panel.allowedContentTypes = [.png]
+        if panel.runModal() == .OK, let url = panel.url,
+           let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) {
+            CGImageDestinationAddImage(dest, cgImage, nil)
+            CGImageDestinationFinalize(dest)
+        }
+    }
 }
 
-// MARK: - Onboarding Flow (permissions missing)
+private struct HostBackground: View {
+    var body: some View {
+        LinearGradient(
+            colors: [Color.black, Color(red: 0.08, green: 0.09, blue: 0.16), Color(red: 0.04, green: 0.05, blue: 0.09)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(alignment: .topTrailing) {
+            Circle()
+                .fill(Color.accentColor.opacity(0.18))
+                .frame(width: 380, height: 380)
+                .blur(radius: 90)
+                .offset(x: 120, y: -120)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct ProductCard<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .padding(22)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.34), radius: 24, x: 0, y: 18)
+    }
+}
+
+private struct HostStatusBadge: View {
+    let state: AppModel.HostRunState
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(color)
+                .frame(width: 10, height: 10)
+            Text(state.title)
+                .font(.headline)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.thinMaterial, in: Capsule())
+    }
+
+    private var color: Color {
+        switch state {
+        case .running: return .green
+        case .starting, .stopping: return .orange
+        case .failed: return .red
+        case .idle: return .secondary
+        }
+    }
+}
+
+private struct TrustBadge: View {
+    let title: String
+    let symbol: String
+
+    var body: some View {
+        Label(title, systemImage: symbol)
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(.secondary)
+    }
+}
+
+private struct QRPanel: View {
+    let pairing: PairingView
+
+    var body: some View {
+        VStack(spacing: 10) {
+            if let cgImage = pairing.qrImage {
+                Image(decorative: cgImage, scale: 1.0, orientation: .up)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 260, height: 260)
+                    .padding(16)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.white.opacity(0.08))
+                    .frame(width: 292, height: 292)
+                    .overlay(Text("QR nicht verfügbar").foregroundStyle(.secondary))
+            }
+            Text("Mit iPhone/iPad scannen")
+                .font(.headline)
+        }
+    }
+}
+
+private struct PairingFact: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(.callout, design: .monospaced))
+                .lineLimit(2)
+                .textSelection(.enabled)
+        }
+    }
+}
+
+private struct TokenPreview: View {
+    let token: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Token")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(token)
+                .font(.system(.caption, design: .monospaced))
+                .lineLimit(4)
+                .textSelection(.enabled)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+}
+
+private struct EmptyPairingView: View {
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "qrcode")
+                .font(.system(size: 72, weight: .light))
+                .foregroundStyle(.secondary)
+            Text("Noch kein Pairing-Code")
+                .font(.title3.bold())
+            Text("Klicke links auf ‘Host starten’. Der QR-Code erscheint dann direkt hier im Fenster.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
+        }
+        .frame(maxWidth: .infinity, minHeight: 330)
+    }
+}
+
+private struct ErrorBanner: View {
+    let message: String
+
+    var body: some View {
+        Label(message, systemImage: "exclamationmark.triangle.fill")
+            .foregroundStyle(.red)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+// MARK: - Permissions Onboarding
 
 struct PermissionsOnboardingFlow: View {
     @EnvironmentObject var model: AppModel
-    @State private var currentStep: OnboardingStep = .welcome
     @State private var pollTimer: Timer?
 
     var body: some View {
-        VStack(spacing: 0) {
-            stepHeader
-            Divider()
-            ScrollView {
-                Group {
-                    switch currentStep {
-                    case .welcome:   OnboardingWelcomeStep()
-                    case .screenRec: OnboardingScreenRecordingStep()
-                    case .access:    OnboardingAccessibilityStep()
-                    case .finished:  OnboardingFinishedStep()
+        ZStack {
+            HostBackground()
+            ProductCard {
+                VStack(alignment: .leading, spacing: 22) {
+                    HStack {
+                        Image(systemName: "macwindow.and.cursorarrow")
+                            .font(.system(size: 42))
+                            .foregroundStyle(Color.accentColor)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Loupe braucht zwei Freigaben")
+                                .font(.title.bold())
+                            Text("Damit dein iPhone den Mac sehen und steuern kann.")
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
                     }
+
+                    PermissionRow(
+                        title: "Bildschirmaufnahme",
+                        detail: "Erlaubt Loupe, den Mac-Bildschirm zu streamen.",
+                        granted: model.status.screenRecording
+                    )
+                    PermissionRow(
+                        title: "Bedienungshilfen",
+                        detail: "Erlaubt Loupe, Maus und Tastatur vom iPhone umzusetzen.",
+                        granted: model.status.accessibility
+                    )
+
+                    HStack(spacing: 12) {
+                        Button {
+                            Permissions.requestScreenRecording()
+                            openPrivacySettings()
+                        } label: {
+                            Label("Datenschutz öffnen", systemImage: "gearshape")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+
+                        Button("Aktualisieren") {
+                            Task { @MainActor in await model.refreshPermissions() }
+                        }
+                        .controlSize(.large)
+                    }
+
+                    Text("Nach dem Erteilen der Berechtigungen wechselt Loupe automatisch zur Host-Oberfläche.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(24)
             }
+            .frame(width: 620)
         }
-        .frame(minWidth: 520, minHeight: 380)
         .task { @MainActor in
             await model.refreshPermissions()
             startPolling()
@@ -261,48 +628,10 @@ struct PermissionsOnboardingFlow: View {
         .onDisappear { stopPolling() }
     }
 
-    private var stepHeader: some View {
-        HStack(spacing: 12) {
-            ForEach(OnboardingStep.allCases, id: \.self) { step in
-                stepDot(step)
-                if step != OnboardingStep.allCases.last {
-                    Rectangle()
-                        .fill(step.isReached(currentStep) ? Color.accentColor : Color.secondary.opacity(0.3))
-                        .frame(height: 2)
-                }
-            }
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 12)
-    }
-
-    private func stepDot(_ step: OnboardingStep) -> some View {
-        Circle()
-            .fill(step.isReached(currentStep) ? Color.accentColor : Color.secondary.opacity(0.3))
-            .frame(width: 14, height: 14)
-            .overlay {
-                if step.isCompleted(model.status, before: currentStep) {
-                    Image(systemName: "checkmark")
-                        .font(.caption2.bold())
-                        .foregroundColor(.white)
-                } else {
-                    Text("\(step.index + 1)")
-                        .font(.caption2.bold())
-                        .foregroundColor(.white)
-                }
-            }
-    }
-
     private func startPolling() {
         stopPolling()
-        // Poll every 2s while onboarding is open. The macOS APIs return
-        // their cached value until TCC updates; 2s is a reasonable
-        // balance between responsiveness and CPU.
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
-            Task { @MainActor in
-                await model.refreshPermissions()
-                advanceIfReady()
-            }
+            Task { @MainActor in await model.refreshPermissions() }
         }
     }
 
@@ -310,215 +639,51 @@ struct PermissionsOnboardingFlow: View {
         pollTimer?.invalidate()
         pollTimer = nil
     }
-
-    private func advanceIfReady() {
-        switch currentStep {
-        case .welcome:
-            if model.status.screenRecording || currentStep != .welcome {
-                currentStep = .screenRec
-            }
-        case .screenRec:
-            if model.status.screenRecording {
-                currentStep = .access
-            }
-        case .access:
-            if model.status.accessibility {
-                currentStep = .finished
-            }
-        case .finished:
-            break
-        }
-    }
 }
 
-enum OnboardingStep: Int, CaseIterable {
-    case welcome = 0
-    case screenRec = 1
-    case access = 2
-    case finished = 3
+private struct PermissionRow: View {
+    let title: String
+    let detail: String
+    let granted: Bool
 
-    var index: Int { rawValue }
-    var title: String {
-        switch self {
-        case .welcome:    return "Willkommen"
-        case .screenRec:  return "Bildschirmaufnahme"
-        case .access:     return "Bedienungshilfen"
-        case .finished:   return "Bereit"
-        }
-    }
-
-    func isReached(_ current: OnboardingStep) -> Bool {
-        self.index <= current.index
-    }
-
-    /// "Completed" means the system permission behind this step has been
-    /// granted at any point. Used to render a checkmark on a step we
-    /// already moved past, in case the user toggles back.
-    func isCompleted(_ status: Permissions.Status, before current: OnboardingStep) -> Bool {
-        switch self {
-        case .welcome:    return false
-        case .screenRec:  return status.screenRecording
-        case .access:     return status.accessibility
-        case .finished:   return status.allGranted
-        }
-    }
-}
-
-// MARK: - Onboarding Steps
-
-struct OnboardingWelcomeStep: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Image(systemName: "macwindow.and.cursorarrow")
-                .imageScale(.large)
-                .foregroundColor(.accentColor)
-            Text("Willkommen bei Loupe")
-                .font(.title.bold())
-            Text("Loupe erlaubt dir, deinen Mac von einem iPhone aus zu steuern. Dafür braucht macOS zwei Freigaben: Bildschirmaufnahme zum Erfassen des Bildschirms, und Bedienungshilfen zum Senden von Mauseingaben und Tasten.")
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Beide Freigaben bleiben auf diesem Mac, bis du sie in Systemeinstellungen widerrufst. Loupe überträgt weder deinen Bildschirm noch deine Eingaben an einen fremden Server — die Verbindung läuft Ende-zu-Ende verschlüsselt direkt zum iPhone.")
-                .fixedSize(horizontal: false, vertical: true)
-                .foregroundColor(.secondary)
-            Spacer().frame(height: 8)
-            Text("Du wirst in den nächsten Schritten durch beide Freigaben geführt.")
-                .font(.callout)
+        HStack(spacing: 14) {
+            Image(systemName: granted ? "checkmark.circle.fill" : "circle.dashed")
+                .foregroundStyle(granted ? .green : .secondary)
+                .font(.title2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                Text(detail)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(granted ? "Erteilt" : "Fehlt")
+                .font(.caption.weight(.bold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(granted ? Color.green.opacity(0.16) : Color.orange.opacity(0.16), in: Capsule())
         }
+        .padding(14)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
-struct OnboardingScreenRecordingStep: View {
-    @EnvironmentObject var model: AppModel
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: model.status.screenRecording ? "checkmark.circle.fill" : "circle.dashed")
-                    .foregroundColor(model.status.screenRecording ? .green : .secondary)
-                Text("Schritt 1 von 2: Bildschirmaufnahme")
-                    .font(.title2.bold())
-            }
-            Text("Die Bildschirmaufnahme erlaubt Loupe, deinen Bildschirm zu erfassen und an dein iPhone zu streamen. macOS fragt aus Sicherheitsgründen vor dem ersten Stream explizit nach.")
-                .fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Klicke unten auf 'Systemeinstellungen öffnen'.", systemImage: "1.circle")
-                Label("In den Systemeinstellungen -> Datenschutz & Sicherheit -> Bildschirmaufnahme.", systemImage: "2.circle")
-                Label("Aktiviere den Schalter neben Loupe. Du musst möglicherweise das Schloss-Symbol anklicken, um Änderungen vorzunehmen.", systemImage: "3.circle")
-                Label("Loupe erkennt die Freigabe automatisch und führt dich zum nächsten Schritt.", systemImage: "4.circle")
-            }
-            .font(.callout)
-            Spacer().frame(height: 8)
-            HStack {
-                Button {
-                    Permissions.requestScreenRecording()
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 500_000_000)
-                        openPrivacySettings()
-                    }
-                } label: {
-                    Label("Systemeinstellungen öffnen", systemImage: "gearshape")
-                }
-                .buttonStyle(.borderedProminent)
-                if model.status.screenRecording {
-                    Label("Erteilt", systemImage: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                }
-            }
-        }
-    }
-}
+// MARK: - System helpers
 
-struct OnboardingAccessibilityStep: View {
-    @EnvironmentObject var model: AppModel
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: model.status.accessibility ? "checkmark.circle.fill" : "circle.dashed")
-                    .foregroundColor(model.status.accessibility ? .green : .secondary)
-                Text("Schritt 2 von 2: Bedienungshilfen")
-                    .font(.title2.bold())
-            }
-            Text("Bedienungshilfen erlauben Loupe, Maus- und Tastatureingaben vom iPhone an deinen Mac zu senden. Ohne diese Freigabe kannst du den Mac nur ansehen, aber nicht steuern.")
-                .fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Klicke unten auf 'Systemeinstellungen öffnen'.", systemImage: "1.circle")
-                Label("In den Systemeinstellungen -> Datenschutz & Sicherheit -> Bedienungshilfen.", systemImage: "2.circle")
-                Label("Aktiviere den Schalter neben Loupe. macOS fordert dich eventuell auf, Loupe neu zu starten, damit die Freigabe wirksam wird.", systemImage: "3.circle")
-                Label("Loupe erkennt die Freigabe automatisch und startet die Verbindung.", systemImage: "4.circle")
-            }
-            .font(.callout)
-            Spacer().frame(height: 8)
-            HStack {
-                Button {
-                    Permissions.requestAccessibility()
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 500_000_000)
-                        openPrivacySettings()
-                    }
-                } label: {
-                    Label("Systemeinstellungen öffnen", systemImage: "gearshape")
-                }
-                .buttonStyle(.borderedProminent)
-                if model.status.accessibility {
-                    Label("Erteilt", systemImage: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                }
-            }
-        }
-    }
-}
-
-struct OnboardingFinishedStep: View {
-    @EnvironmentObject var model: AppModel
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Image(systemName: "checkmark.seal.fill")
-                .imageScale(.large)
-                .foregroundColor(.green)
-            Text("Alles bereit")
-                .font(.title.bold())
-            Text("Beide Freigaben sind erteilt. Loupe wechselt automatisch in den Bereit-Modus und zeigt dir den Pairing-Code, den du mit deinem iPhone scannen kannst.")
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Falls du eine Freigabe später widerrufst, kehrt Loupe automatisch in den Onboarding-Flow zurück.")
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
-// MARK: - Open Privacy Settings
-
-@MainActor
 func openPrivacySettings() {
-    let candidates = [
-        // macOS 13+
-        "x-apple.systempreferences:com.apple.preference.security?Privacy",
-        // Older URL scheme still works as a fallback
-        "x-apple.systempreferences:com.apple.preference.security",
-    ]
-    for urlString in candidates {
-        if let url = URL(string: urlString) {
-            NSWorkspace.shared.open(url)
-            return
-        }
+    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy") {
+        NSWorkspace.shared.open(url)
     }
 }
 
-// MARK: - Crash-Reporting settings (Sprint 23)
-
-/// Open the crash-reporting settings window. The settings
-/// are persisted via `UserDefaultsCrashReportingSettingsStore`
-/// and the in-process reporter is updated immediately so the
-/// next crash (or non-fatal error) follows the new policy.
-@MainActor
 func showCrashReportingSettings() {
-    let store = UserDefaultsCrashReportingSettingsStore()
-    let reporter: CrashReporter = NullCrashReporter()
-    let model = CrashReportingSettingsModel(store: store, reporter: reporter)
-    let view = CrashReportingSettingsView(model: model)
-    let hosting = NSHostingController(rootView: view)
-    let window = NSWindow(contentViewController: hosting)
-    window.title = "Loupe — Absturzberichte"
-    window.makeKeyAndOrderFront(nil)
-    NSApp.activate(ignoringOtherApps: true)
+    let alert = NSAlert()
+    alert.messageText = "Crash Reporting"
+    alert.informativeText = "Loupe schreibt lokale macOS-Crashberichte. Es werden keine Crashdaten automatisch an Loupe übertragen."
+    alert.alertStyle = .informational
+    alert.addButton(withTitle: "OK")
+    alert.runModal()
 }
 
 #endif
